@@ -36,6 +36,7 @@ class DQRingBuffer(deque):
         return np.asarray(self)
     def get_delayed(self, delay=1):
         if not 0 <= delay < self.maxlen:
+            # return 0
             # won't let you return get_delayed(0),
             raise IndexError(f'delay {delay} out of bounds for buffer length {self.maxlen}')
         # print(-delay-1)
@@ -72,7 +73,9 @@ class RingBuffer:
         # cap the delay, so that delay = -Inf returns the oldest value in the array.
         # delay = max(min(delay, self.size),1)
         return self.values[-delay-1]
-        
+    def to_np(self):
+        'this transpose shouldnt be necessary'
+        return self.values.T
     def fill(self, fill_val):
         self.values.fill(fill_val)
     def __getitem__(self, idx):
@@ -113,7 +116,9 @@ class RingBuffer_2D:
         # cap the delay, so that delay = -Inf returns the oldest value in the array.
         # delay = max(min(delay, self.size),1)
         return self.values[:,-delay-1]
-        
+    def to_np(self):
+        'this transpose shouldnt be necessary'
+        return self.values.T
     def fill(self, fill_val):
         self.values.fill(fill_val)
     def __getitem__(self, idx):
