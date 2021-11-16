@@ -9,13 +9,21 @@ import pandas as pd
 
 
 #%%
+def null_last_row(df):
+    '''
+    called to break up transitions between series for plotly based on melted dataframe
+    '''
+    #assumes time column is on the far right side
+    df.iloc[-1,:-1]=None
+    return df
+    
 def volt_monitors_to_hier_df(all_monitors, group_names, neuron_names):
     dfh = hier_df_from_lists(group_names, neuron_names)
     for idx,mon in enumerate(all_monitors):
         data_dict = mon.get_states(['t','v'], units=False)
         dfh = expand_volt_monitor_to_hier_df(data_dict, group_name=group_names[idx], df=dfh)
 
-    dfh['time [ms]'] = data_dict['t']
+    dfh['time [ms]'] = 1000*data_dict['t']
     return dfh
 
 def hier_df_from_lists(high_level_list, lower_level_list):

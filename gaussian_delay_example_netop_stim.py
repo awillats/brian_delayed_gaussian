@@ -60,6 +60,7 @@ buffer_len = max(delay_samp+1, buffer_len)
 
 history_buffer = DQRingBuffer(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
 # history_buffer = RingBuffer_2D(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
+# history_buffer.fill(0*np.ones(N_total))
 
 #%%
 
@@ -113,7 +114,19 @@ def record_v_to_buffer():
     global history_buffer
     
     history_buffer.append( get_current_v() )
-
+        # np_buffer.append( get_current_v() )
+    # --------------------------
+    # explicit, multi-line version:
+    # selected_delayed_vals = history_buffer.get_delayed(delay_samp,True)
+    # mapped_delayed_vals = selected_delayed_vals[ab_syn.i[:]]
+    # ab_syn.v_delayed = mapped_delayed_vals
+    
+    # one-liner, only works for buffers which store values as 2D numpy:
+    ab_syn.v_delayed = history_buffer[ab_syn.i[:], -delay_samp-1]
+    
+    # one-liner, only works for either buffer type
+    # ab_syn.v_delayed = history_buffer.to_np()[ab_syn.i[:], -delay_samp-1]
+    # ab_syn.v_delayed = np.array(history_buffer.get_delayed(delay_samp))[ab_syn.i[:]]
 
 
 net = Network()
@@ -130,6 +143,33 @@ print(f'{duration} second simulation took\n {run_walltime:.3f} seconds to simula
  with {type(history_buffer)},\n\
  buffer len: {buffer_len}, {N_total} neurons')
 # %%
+
+# [ab_syn.i[:]]
+
+#%% markdown
+I think all these runtimes are for access only,
+1.0 second simulation took
+ 0.560, 0.642  seconds to simulate
+ with <class 'ring_buffers.DQRingBuffer'>,
+ buffer len: 500
+
+1.0 second simulation took
+ 0.873, .817 seconds to simulate
+ with <class 'ring_buffers.RingBuffer_2D'>,
+ buffer len: 500
+ 
+----------
+ 5.0 second simulation took
+  2.791, 2.845 seconds to simulate
+  with <class 'ring_buffers.DQRingBuffer'>,
+  buffer len: 500
+  
+ 5.0 second simulation took
+  3.711, 4.006 seconds to simulate
+  with <class 'ring_buffers.RingBuffer_2D'>,
+  buffer len: 500
+ ----------
+
 
 
 #%%
@@ -152,7 +192,7 @@ df_tail = dfh.tail(buffer_len).reset_index(drop=True)
 print('any differences between buffer and monitor output?')
 print(df_tail.compare(dfhist_tail))
 #%%
-history_group_names = ['hA','hB']
+history_group_names = ['buffer A','buffer B']
 rename_groups = dict(zip(group_names, history_group_names))
 
 df_m = melt_hier_df_voltage(null_last_row(dfh))

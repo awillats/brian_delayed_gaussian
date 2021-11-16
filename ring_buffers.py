@@ -1,11 +1,17 @@
 from collections import deque 
 import numpy as np
 
+import itertools
 #%%
 # This code gets the final states, but doesn't unpack the entire timeseries
 # df= Ga.get_states(units=False,format='pandas')
 # df.head()
 
+
+'''
+beware, if self.values ends up as a ([...],dtype=object) array, 
+the pointers will lead to unintended consequences later
+'''
 #%%
 class DQRingBuffer(deque):
     '''
@@ -17,9 +23,11 @@ class DQRingBuffer(deque):
     - becuase of storage of columns as tuples, indexing is less flexible than numpy version
     '''
     from collections import deque
-    def __init__(self, buffer_len = 100, n_channels=1):
+    def __init__(self, buffer_len = 100, n_channels=1, initial_val=None):
         super().__init__([],maxlen = buffer_len)
         self.n_channels = n_channels
+        if initial_val is not None:
+            self.fill(np.ones(n_channels)*initial_val)
     #inherits append method
     def append(self, new_val):
         if self.n_channels > 1 and len(new_val) is not self.n_channels:
@@ -33,14 +41,52 @@ class DQRingBuffer(deque):
         for i in range(self.maxlen):
             self.append(fill_val)
     def to_np(self):
-        return np.asarray(self)
-    def get_delayed(self, delay=1):
+        return np.asarray(self).T
+    def get_delayed(self, delay=1, to_np=False):
         if not 0 <= delay < self.maxlen:
             # return 0
             # won't let you return get_delayed(0),
             raise IndexError(f'delay {delay} out of bounds for buffer length {self.maxlen}')
         # print(-delay-1)
-        return self[-delay-1]
+        if to_np:
+            return np.array(self[-delay-1])
+        else:
+            return self[-delay-1]
+    
+    def __getitem__(self, idx, jdx=None):
+        '''
+        wrapper to extend indexing to deque to be multidimensional
+        - ideally this indexing mirrors numpy's
+            - can't handle advanced numpy indexing flexibly... should just use numpy
+        - slicing deques in python: https://discuss.python.org/t/slicing-notation-with-deque-and-multi-dimensional-slicing-on-data-structures/2791
+        
+        '''
+        if isinstance(idx, slice):
+            # 1D slicing
+            # print(idx.start)
+            return list(itertools.islice(self, idx.start, idx.stop, idx.step))
+        elif isinstance(idx, tuple):
+            # if it's more complicated than that, need to conver to numpy
+            # convert to numpy then index
+            v = self.to_np()
+            return v[idx[0], idx[1]]
+        else:
+            # print(type(idx))
+            return super().__getitem__(idx)
+        
+        # if jdx is not None:
+        #     print(jdx)
+        # return super().__getitem__(idx)
+        # if isinstance(jdx, int):
+        #     return super().__getitem__(idx)
+        # elif isinstance(jdx, slice):
+        #     print(slice)
+        #     return list(itertools.islice(self, 0, 1))
+        # else:
+        #     print(type(idx))
+
+        # if isinstance(idx, slice):
+        #     pass
 
 class RingBuffer:
     '''
@@ -51,10 +97,14 @@ class RingBuffer:
     - speed test for roll implementations: https://gist.github.com/cchwala/dea03fb55d9a50660bd52e00f5691db5
 
     '''
-    def __init__(self,buffer_len = 100, initial_val=None):
+    def __init__(self,buffer_len = 100, initial_val=0):
+        if initial_val is None:
+            raise ValueError('Error: filling with None results in a dtype=object array\n\
+            which is bad for using the buffer later')
         self.n_channels = n_channels 
         self.buffer_len = buffer_len
-        self.values = np.full(self.buffer_len, initial_val)
+        if initial_val is not None:
+            self.values = np.full(self.buffer_len, initial_val)
     
     def append(self, new_val):
         self.values = np.append(self.values, new_column)
@@ -75,7 +125,7 @@ class RingBuffer:
         return self.values[-delay-1]
     def to_np(self):
         'this transpose shouldnt be necessary'
-        return self.values.T
+        return self.values
     def fill(self, fill_val):
         self.values.fill(fill_val)
     def __getitem__(self, idx):
@@ -95,7 +145,8 @@ class RingBuffer_2D:
     def __init__(self, n_channels, buffer_len = 100, initial_val=None):
         self.n_channels = n_channels 
         self.buffer_len = buffer_len
-        self.values = np.full((self.n_channels, self.buffer_len), initial_val)
+        if initial_val is not None:
+            self.values = np.full((self.n_channels, self.buffer_len), initial_val)
     
     def append(self, new_column):
         #expands column to 2D 
@@ -118,7 +169,7 @@ class RingBuffer_2D:
         return self.values[:,-delay-1]
     def to_np(self):
         'this transpose shouldnt be necessary'
-        return self.values.T
+        return self.values
     def fill(self, fill_val):
         self.values.fill(fill_val)
     def __getitem__(self, idx):
