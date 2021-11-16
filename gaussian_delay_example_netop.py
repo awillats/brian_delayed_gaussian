@@ -11,9 +11,7 @@ import plotly.express as px
 
 # %% markdown
 ## meta-tasks
-- check my for-loop implementation from cross-correlation visualizer
-- this is very close 
-    - https://brian.discourse.group/t/delay-for-summed-variables-in-synapses/424/2?u=adam
+
 ----------
 
 ## within a loop

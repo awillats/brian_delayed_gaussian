@@ -7,6 +7,10 @@ import plotly.express as px
 
 from brian_to_dataframe import *
 
+%matplotlib inline
+%load_ext autoreload
+%autoreload 2
+
 # %%
 start_scope()
 duration = 5000*ms
