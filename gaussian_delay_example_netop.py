@@ -37,20 +37,9 @@ import plotly.express as px
 - access stim-current for effect 
     
     - handled automatically by `w * I_past_stim` in voltage equations
-
 ----------
-so... no synapses used?
 # %%
 #%%
-
-# 
-# print(q.to_np())
-# print(q.get_delayed(1))
-# print(q[-1])
-# print(m.get_delayed(1))
-
-# print(r.get_delayed(2))
-
 
 # %%
 start_scope()
@@ -58,6 +47,7 @@ duration = 5000*ms
 dt = defaultclock.dt;
 
 N_neurons = 5
+neuron_names = range(N_neurons)
 tau = 10*ms
 sigma = 50#50
 weight = -1;
@@ -102,12 +92,12 @@ net.add(all_groups, all_synapses, all_monitors)
 net.run(duration)
 #%%
 
-
 #%%
-
-m_idx = pd.MultiIndex.from_product( [group_names, range(N_neurons)])
-dfh = pd.DataFrame(columns=m_idx)
-
+# This code gets the final states, but doesn't unpack the entire timeseries
+# df= Ga.get_states(units=False,format='pandas')
+# df.head()
+#%%
+dfh = hier_df_from_lists(group_names, neuron_names)
 for idx,mon in enumerate(all_monitors):
     data_dict = mon.get_states(['t','v'],units=False)
     dfh = expand_volt_monitor_to_hier_df(data_dict, group_name=group_names[idx], df=dfh)
@@ -122,10 +112,16 @@ dfm = dfh.melt(id_vars='time [ms]',var_name=['population','neuron'],value_name='
 dfm['total_neuron_idx'] = dfm['population']+ dfm['neuron'].astype(str)
 # dfm.head()
 #%%
-# fig = px.line(dfm,x='time [ms]',y='voltage',facet_row='total_neuron_idx',color='population')
-fig = px.line(dfm,x='time [ms]',y='voltage',facet_row='population',color='neuron')
-fig.update_traces(line=dict(width=1))
-# fig.update_layout(width=500,height=80*N_nodes*N_neurons)
-fig.update_layout(width=500,height=400)
-
+'plots each channel as a row'
+fig = px.line(dfm,x='time [ms]',y='voltage',facet_row='total_neuron_idx',color='population')
+fig.update_layout(width=500, height=80*N_nodes*N_neurons)
 fig.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
+
+' collapses into a row per population '
+# fig = px.line(dfm, x='time [ms]', y='voltage', facet_row='population', color='neuron')
+# fig.update_layout(width=500, height=400)
+
+fig.update_traces(line=dict(width=1))
+
+
+#%%
