@@ -15,9 +15,6 @@ from ring_buffers import *
 # %% markdown
 ## meta-tasks
 
-
- - [ ] just record data to buffer with network_operation 
-
 ----------
 ## within a loop
 - store current value
@@ -31,10 +28,6 @@ from ring_buffers import *
 - access stim-current for effect 
     
     - handled automatically by `w * I_past_stim` in voltage equations
-----------
-### Useful resources
-
-- syn.i gets presynaptic index, syn.j post-
 ----------
 # %%
 # should be computed from the max delay_samples
