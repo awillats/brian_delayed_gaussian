@@ -102,10 +102,7 @@ net.add(all_groups, all_synapses, all_monitors)
 net.run(duration)
 #%%
 
-#%%
-# This code gets the final states, but doesn't unpack the entire timeseries
-# df= Ga.get_states(units=False,format='pandas')
-# df.head()
+
 #%%
 
 m_idx = pd.MultiIndex.from_product( [group_names, range(N_neurons)])
@@ -132,45 +129,3 @@ fig.update_traces(line=dict(width=1))
 fig.update_layout(width=500,height=400)
 
 fig.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
-
-
-#%% ARCHIVE
-# class RingBuffer:
-#     '''
-#     loose implementation of a ring-buffer with numpy arrays
-#     - consider something like collections.deque for a stricter implementation
-#     - see also Implementing a Ring Buffer - Python Cookbook: https://www.oreilly.com/library/view/python-cookbook/0596001673/ch05s19.html
-# 
-# 
-#     use cycle_in() to insert values while maintaining the length of the buffer
-#     '''
-#     def __init__(self, buffer_len = 100, initial_val=None):
-#         self.size = buffer_len
-#         self.values = np.full(self.size, initial_val)
-# 
-#     def enqueue(self, new_val):
-#         self.values = np.append(self.values, new_val)
-# 
-#     def dequeue(self):
-#         self.values = self.values[1:]
-# 
-#     def cycle_in(self, new_val):
-#         self.enqueue(new_val)
-#         self.dequeue()
-# 
-#     def last(self):
-#         return self.values[-1]
-# 
-#     def get_delayed(self, delay=1):
-#         # if invalid delay delay is requested:
-#         # return None or NaN 
-# 
-#         if not 0 < delay < self.size:
-#             return None
-#         # alternate implementation would
-#         # cap the delay, so that delay = -Inf returns the oldest value in the array.
-#         # delay = max(min(delay, self.size),1)
-# 
-#         return self.values[-delay]
-#     def __str__(self):
-#         return f'buffer with len: {self.size}, \nvals: {str(self.values)}\n'

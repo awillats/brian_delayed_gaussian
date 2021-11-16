@@ -1,6 +1,12 @@
 from collections import deque 
 import numpy as np
 
+#%%
+# This code gets the final states, but doesn't unpack the entire timeseries
+# df= Ga.get_states(units=False,format='pandas')
+# df.head()
+
+#%%
 class DQRingBuffer(deque):
     '''
     Assumes last value in buffer is current! i.e. 0-delay
@@ -116,7 +122,6 @@ class RingBuffer_2D:
         return f'buffer with {self.n_channels} columns, len: {self.buffer_len}, \nvals: {str(self.values)}\n'
 # %%
 if __name__ == "__main__":
-    # if __name__ == "__main__":
     import time 
     n_channels = 10
     buff_len = 10000
