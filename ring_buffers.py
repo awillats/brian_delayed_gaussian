@@ -13,6 +13,7 @@ the pointers will lead to unintended consequences later
 
 
 need to straighten out the indexing convention (see .T in to_np() ) 
+also need to generalize error checking / validation to numpy arrays of indices
 '''
 #%%
 class DQRingBuffer(deque):
@@ -45,11 +46,14 @@ class DQRingBuffer(deque):
     def to_np(self):
         return np.asarray(self).T
     def get_delayed(self, delay=1, to_np=False):
-        if not 0 <= delay < self.maxlen:
+        #NOTE: removed error checking for now.
+        # need to generalize this for arrays of delays
+        # if not 0 <= delay < self.maxlen:
             # return 0
             # won't let you return get_delayed(0),
-            raise IndexError(f'delay {delay} out of bounds for buffer length {self.maxlen}')
-        # print(-delay-1)
+            # raise IndexError(f'delay {delay} out of bounds for buffer length {self.maxlen}')
+        
+        
         if to_np:
             return np.array(self[-delay-1])
         else:
@@ -70,8 +74,11 @@ class DQRingBuffer(deque):
         elif isinstance(idx, tuple):
             # if it's more complicated than that, need to conver to numpy
             # convert to numpy then index
-            v = self.to_np()
+            v = self.to_np() # this is VERY slow for large matrices
             return v[idx[0], idx[1]]
+        # elif isinstance(idx, np.ndarray):
+        #     v = self.to_np()
+        #     return v.flatten()[idx]
         else:
             # print(type(idx))
             return super().__getitem__(idx)
@@ -155,8 +162,9 @@ class RingBuffer_2D:
         return self.values[:,-1]
 
     def get_delayed(self, delay=1):
-        if not 0 <= delay < self.buffer_len:
-            raise IndexError(f'delay {delay} out of bounds for buffer length {self.buffer_len}')
+        # if not 0 <= delay < self.buffer_len:
+            # raise IndexError(f'delay {delay} out of bounds for buffer length {self.buffer_len}')
+    
         # alternate implementation would
         # cap the delay, so that delay = -Inf returns the oldest value in the array.
         # delay = max(min(delay, self.size),1)

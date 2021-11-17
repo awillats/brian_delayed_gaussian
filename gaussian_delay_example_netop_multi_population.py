@@ -20,10 +20,10 @@ def time2index(t):
     return np.round(t/dt).astype(int)
 
     
-min_buffer_len = time2index(50*ms)
+min_buffer_len = time2index(0*ms)
 
-N_groups = 5 # gets re-written later
-N_neurons = 10
+N_groups = 5 
+N_neurons = 1
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
 tau = 5*10*ms
@@ -53,8 +53,8 @@ Delays_samp = time2index(Delays)
 
 buffer_len = int(max(np.max(Delays_samp[:])+1, min_buffer_len))
 
-history_buffer = DQRingBuffer(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
-# history_buffer = RingBuffer_2D(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
+# history_buffer = DQRingBuffer(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
+history_buffer = RingBuffer_2D(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
 
 #%%
 
@@ -140,15 +140,21 @@ def record_v_to_buffer():
         #option 1: access delay from delay(time) variable,
         #    - then convert to samples
         # this_delay_samp = time2index(a_syn.delay) 
-        
+    
         #option 2: access delay from custom delay_samp attribute
         this_delay_samp = a_syn.delay_samp[:]
         buffer_from_idx = ij_to_flat_index(a_syn.group_i, a_syn.i[:])
         a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp-1]
-
+        
+        # for debugging timing ONLY:
+        # _ = history_buffer.to_np()
+        # _ = history_buffer[buffer_from_idx, -this_delay_samp-1]
+        # a_syn.v_delayed = np.zeros(buffer_from_idx.shape)
+        # print(this_delay_samp)
+        # a_syn.v_delayed = history_buffer.get_delayed(this_delay_samp,True)[buffer_from_idx]
         pass
 
-all_synapses[0].delay_samp[:]
+history_buffer.to_np().shape
 net = Network()
 net.add(all_groups, all_synapses, all_monitors)
 net.add(record_v_to_buffer)
@@ -165,6 +171,18 @@ print(f'{duration} second simulation took\n {run_walltime:.3f} seconds to simula
 
 
 #%% markdown
+5x10 neurons, 500 buffer, DQ Buffer:
+
+1.5 sec without writing  
+-4 seconds writing 0 to v_delayed  
+2-5 seconds with writting to v_delayed  (from Numpy buffer)
+6 seconds with writting to v_delayed  (from DQ buffer, with get_delay then indexing by neuron)
+27 seconds with writting to v_delayed  (from DQ buffer, with clunky custom 2D indexing)
+
+
+
+reading out of history_buffer is the bottleneck !
+
 
 
 #%%
