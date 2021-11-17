@@ -52,8 +52,8 @@ def time2index(t):
     
 min_buffer_len = time2index(250*ms)
 
-N_groups = 4 # gets re-written later
-N_neurons = 1
+N_groups = 5 # gets re-written later
+N_neurons = 2
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
 tau = 5*10*ms
@@ -107,7 +107,10 @@ delayed_gap_eq = '''
             '''
 DO_NOTHING = 'v=v'
 FAKE_THRESHOLD = 'v>999999'
-all_groups = [NeuronGroup(N_neurons, eqs, method='euler', threshold=FAKE_THRESHOLD,reset='') for i in range(N_groups)]
+# all_groups = [NeuronGroup(N_neurons, eqs, method='euler', threshold=FAKE_THRESHOLD,reset='') for i in range(N_groups)]
+all_groups = [NeuronGroup(N_neurons, eqs, method='euler') for i in range(N_groups)]
+
+
 #%%
 group_names = [chr(i+97).upper() for i in range(N_groups)]
 
@@ -123,17 +126,19 @@ for i in range(N_groups):
     for j in range(N_groups):
         if is_ij_valid(i,j):
             
-            ij_syn = Synapses(all_groups[i], all_groups[j], model=delayed_gap_eq, on_pre=DO_NOTHING, delay=Delays[i,j])
+            # ij_syn = Synapses(all_groups[i], all_groups[j], model=delayed_gap_eq, on_pre=DO_NOTHING, delay=Delays[i,j])
+            ij_syn = Synapses(all_groups[i], all_groups[j], model=delayed_gap_eq)
+
             ij_syn.connect()
             ij_syn.w = Weights[i,j];
             
             ij_syn.add_attribute('delay_samp')
-            ij_syn.delay_samp = [Delays_samp[i,j]]
+            ij_syn.delay_samp = Delays_samp[i,j]*np.ones(N_neurons*N_neurons).astype(int) #could this be made into a per-neuron list?
         
             ij_syn.add_attribute('group_i')
-            ij_syn.add_attribute('group_j')
+            # ij_syn.add_attribute('group_j')
             ij_syn.group_i = i
-            ij_syn.group_j = j
+            # ij_syn.group_j = j
             
             all_synapses.append(ij_syn)
 
@@ -165,15 +170,17 @@ def record_v_to_buffer():
         # this_delay_samp = time2index(a_syn.delay)
             # a_syn.v_delayed = history_buffer[a_syn.i[:], -this_delay_samp-1]
         
-        this_delay_samp = time2index(a_syn.delay) 
+        # this_delay_samp = time2index(a_syn.delay) 
+        
+        this_delay_samp = a_syn.delay_samp
         buffer_from_idx = ij_to_flat_index(a_syn.group_i, a_syn.i[:])
-        a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp-1]
+        a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp[:]-1]
 
             # a_syn.v_delayed = history_buffer[a_syn.i[:], -a_syn.delay_samp[:]-1]
             
         #NOTE: a_syn.i[:] represents neuron index NOT group index
         
-        a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp-1]
+        # a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp-1]
         pass
         
     # explicit, multi-line version:
@@ -185,7 +192,7 @@ def record_v_to_buffer():
     # ab_syn.v_delayed = history_buffer.to_np()[ab_syn.i[:], -delay_samp-1]
     # ab_syn.v_delayed = np.array(history_buffer.get_delayed(delay_samp))[ab_syn.i[:]]
 
-
+all_synapses[0].delay_samp[:]
 net = Network()
 net.add(all_groups, all_synapses, all_monitors)
 net.add(record_v_to_buffer)

@@ -26,7 +26,7 @@
   - consistent with plotting time on x-axis 
 ---
 ## Advanced features 
-- [ ] generalize beyond two populations 
+- [x] generalize beyond two populations 
   - [?] multiple inputs to each output population 
     - sum effect in `I_from_delayed`?
       ```
@@ -35,16 +35,16 @@
       ```
       - handled for us with `(summed)` keyword and equations being stored in synapse?
       
-  - [ ] !!! different delays for each synapse 
-    - [ ] start by implementing different weights for each synapse 
+  - [x] !!! different delays for each synapse 
+    - [x] start by implementing different weights for each synapse 
       - see my implementation of a weight matrix + delay matrix (single delay per connection)
       
-    - [ ] store per-synapse delay as synapse variable 
+    - [!] store per-synapse delay as synapse variable 
     - [ ] access per-synapse delay in network_op
     - may require `for .. in` to loop across 
     - does this require hard-coded connections?
       - i'm currently using `v_delayed` as container for presynaptic effect 
-         - does this assume each 
+         - does this assume each `...`
   
 - [ ] multiple delays per synapse 
   - is this taken care of us by multi-synapses?
