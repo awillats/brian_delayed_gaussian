@@ -7,10 +7,12 @@ import itertools
 # df= Ga.get_states(units=False,format='pandas')
 # df.head()
 
-
 '''
 beware, if self.values ends up as a ([...],dtype=object) array, 
 the pointers will lead to unintended consequences later
+
+
+need to straighten out the indexing convention (see .T in to_np() ) 
 '''
 #%%
 class DQRingBuffer(deque):
@@ -73,20 +75,7 @@ class DQRingBuffer(deque):
         else:
             # print(type(idx))
             return super().__getitem__(idx)
-        
-        # if jdx is not None:
-        #     print(jdx)
-        # return super().__getitem__(idx)
-        # if isinstance(jdx, int):
-        #     return super().__getitem__(idx)
-        # elif isinstance(jdx, slice):
-        #     print(slice)
-        #     return list(itertools.islice(self, 0, 1))
-        # else:
-        #     print(type(idx))
-
-        # if isinstance(idx, slice):
-        #     pass
+    
 
 class RingBuffer:
     '''
@@ -105,6 +94,8 @@ class RingBuffer:
         self.buffer_len = buffer_len
         if initial_val is not None:
             self.values = np.full(self.buffer_len, initial_val)
+        else:
+            self.values = np.array([])
     
     def append(self, new_val):
         self.values = np.append(self.values, new_column)
@@ -140,7 +131,10 @@ class RingBuffer_2D:
     - only buffers along axis=1
     - consider something like collections.deque for a stricter implementation
     - see also Implementing a Ring Buffer - Python Cookbook: https://www.oreilly.com/library/view/python-cookbook/0596001673/ch05s19.html
-
+    
+    
+    - could be made more efficient by moving index pointer instead of array
+        - (see Cylindrical array in Vectorized Algorithms for Spiking Neural Network Simulation)
     '''
     def __init__(self, n_channels, buffer_len = 100, initial_val=None):
         self.n_channels = n_channels 

@@ -15,7 +15,6 @@ from ring_buffers import *
 # %% markdown
 ## meta-tasks
 
-
  - [x] just record data to buffer with network_operation 
 
 ----------
