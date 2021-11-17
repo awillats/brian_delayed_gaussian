@@ -12,43 +12,13 @@ from ring_buffers import *
 %load_ext autoreload
 %autoreload 2
 
-# %% markdown
-## meta-tasks
-
-----------
-## within a loop
-- store current value
-    - with net_op append current val to short buffer of past values to X_past 
-    
-- grab from past -> (write to history buffer) -> write to stim-current
-    - with net_op apply stimulation according to X_past
-    - how to store the past?
-    - Do I need a queue implementation?
-    - TimedArray would allow flexible relative time [discussion](https://github.com/brian-team/brian2/issues/467)
-- access stim-current for effect 
-    
-    - handled automatically by `w * I_past_stim` in voltage equations
-----------
-
-how to handle multiple delays?
-- tensor? n_neurons x n_neurons x n_delay
-    - with weight as entry
-    - collapse result?
-
-----------
-# %%
-
-#%%
-# should be computed from the max delay_samples
-
-
 # %%
 start_scope()
 duration = 1000*ms
 dt = defaultclock.dt;
 def time2index(t):
     return np.round(t/dt).astype(int)
-    
+
     
 min_buffer_len = time2index(250*ms)
 
@@ -59,9 +29,10 @@ neuron_names = range(N_neurons)
 tau = 5*10*ms
 sigma = 50
 
-
 def ij_to_flat_index(gi, ni, N_high=N_groups, N_low=N_neurons):
     return gi*N_low + ni
+# def flat_index_to_ij(fi, N_high=N_groups, N_low=N_neurons):
+    # return 
 
 #%%
 base_weight = 2.5 / N_neurons;
@@ -107,7 +78,11 @@ delayed_gap_eq = '''
             '''
 DO_NOTHING = 'v=v'
 FAKE_THRESHOLD = 'v>999999'
+
+#option 1: store delay inside synapse. (requires fake threshold, reset)
 # all_groups = [NeuronGroup(N_neurons, eqs, method='euler', threshold=FAKE_THRESHOLD,reset='') for i in range(N_groups)]
+
+#option 2: store delay in custom attribute
 all_groups = [NeuronGroup(N_neurons, eqs, method='euler') for i in range(N_groups)]
 
 
@@ -122,11 +97,15 @@ def get_current_v():
 #%%
 all_synapses = []
 
+# constrcut synapses based on weight matrix.
+# - assumes all-to-all connectivity within group-group connections
 for i in range(N_groups):
     for j in range(N_groups):
         if is_ij_valid(i,j):
             
+            #option 1: store delay inside synapse. (requires fake threshold, reset)
             # ij_syn = Synapses(all_groups[i], all_groups[j], model=delayed_gap_eq, on_pre=DO_NOTHING, delay=Delays[i,j])
+            #option 2: store delay in custom attribute
             ij_syn = Synapses(all_groups[i], all_groups[j], model=delayed_gap_eq)
 
             ij_syn.connect()
@@ -165,32 +144,17 @@ def record_v_to_buffer():
         
     history_buffer.append( get_current_v() )
     # --------------------------
-    # one-liner, only works for buffers which store values as 2D numpy:
-    for a_syn in all_synapses:
-        # this_delay_samp = time2index(a_syn.delay)
-            # a_syn.v_delayed = history_buffer[a_syn.i[:], -this_delay_samp-1]
-        
+    for a_syn in all_synapses:        
+        #option 1: access delay from delay(time) variable,
+        #    - then convert to samples
         # this_delay_samp = time2index(a_syn.delay) 
         
-        this_delay_samp = a_syn.delay_samp
+        #option 2: access delay from custom delay_samp attribute
+        this_delay_samp = a_syn.delay_samp[:]
         buffer_from_idx = ij_to_flat_index(a_syn.group_i, a_syn.i[:])
-        a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp[:]-1]
+        a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp-1]
 
-            # a_syn.v_delayed = history_buffer[a_syn.i[:], -a_syn.delay_samp[:]-1]
-            
-        #NOTE: a_syn.i[:] represents neuron index NOT group index
-        
-        # a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp-1]
         pass
-        
-    # explicit, multi-line version:
-    # selected_delayed_vals = history_buffer.get_delayed(delay_samp,True)
-    # mapped_delayed_vals = selected_delayed_vals[ab_syn.i[:]]
-    # ab_syn.v_delayed = mapped_delayed_vals
-    
-    # one-liner, works for either buffer type
-    # ab_syn.v_delayed = history_buffer.to_np()[ab_syn.i[:], -delay_samp-1]
-    # ab_syn.v_delayed = np.array(history_buffer.get_delayed(delay_samp))[ab_syn.i[:]]
 
 all_synapses[0].delay_samp[:]
 net = Network()

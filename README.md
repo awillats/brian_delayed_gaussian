@@ -40,11 +40,11 @@
       - see my implementation of a weight matrix + delay matrix (single delay per connection)
       
     - [!] store per-synapse delay as synapse variable 
-    - [ ] access per-synapse delay in network_op
-    - may require `for .. in` to loop across 
+    - [x] access per-synapse delay in network_op
+      - may require `for .. in` to loop across 
+      - for now looping across synapses is enough
     - does this require hard-coded connections?
       - i'm currently using `v_delayed` as container for presynaptic effect 
-         - does this assume each `...`
   
 - [ ] multiple delays per synapse 
   - is this taken care of us by multi-synapses?
@@ -92,6 +92,7 @@
     - can do this for now, pull property back out inside network operations 
       - but this requires converting from time to samples every step 
     - can also `add_attribute('delay_samples')` 
+    - see `example_netop_multi_population` for implementations of this
     
   - or consistent with delay differential equation expression
     - `eqs = 'dr/dt = w * r(t - delay_t) '`
