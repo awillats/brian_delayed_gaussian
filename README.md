@@ -1,9 +1,11 @@
 # Goals
 
-See ["Delay in continuous connections"](https://brian.discourse.group/t/delay-in-continuous-connections/509) for more context
 
-Looking to simulate a circuit with the Brian2 simulator framework which represents a rate model of a network with delay in synapses
+- Looking to simulate a circuit with the Brian2 simulator framework which represents a rate model of a network with delay in synapses
+  - See ["Delay in continuous connections"](https://brian.discourse.group/t/delay-in-continuous-connections/509) for more context
 
+- **secondary goal:** export data from StateMonitors to pandas DataFrames
+  - format suitable for df-based plotting libraries like plotly
   
 # Components of a solution
 1. Extract current state of network (ideally as a column) 
@@ -85,6 +87,12 @@ Looking to simulate a circuit with the Brian2 simulator framework which represen
 - [ ] friendly synatax for expressing delayed relationships 
   - ideally, consistent with [delay for spiking synapses](https://brian2.readthedocs.io/en/stable/user/synapses.html#delays)
     - `synapses = Synapses(sources, targets, '...', on_pre='...', delay=1*ms)`
+    - would be especially convenient to be able to switch between spiking and rate-based implementations with minimal model-specification code differences
+    
+    - can do this for now, pull property back out inside network operations 
+      - but this requires converting from time to samples every step 
+    - can also `add_attribute('delay_samples')` 
+    
   - or consistent with delay differential equation expression
     - `eqs = 'dr/dt = w * r(t - delay_t) '`
     - [Adding delay differential equation solver](https://brian.discourse.group/t/adding-delay-differential-equation-solver/191)
