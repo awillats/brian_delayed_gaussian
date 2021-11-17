@@ -56,7 +56,7 @@ N_groups = 4 # gets re-written later
 N_neurons = 1
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
-tau = 10*ms
+tau = 5*10*ms
 sigma = 50
 
 
@@ -76,6 +76,8 @@ def is_ij_valid(i,j):
     return Weights[i][j] != 0
 Delays = np.ones((N_groups, N_groups)) * base_delay
 Delays[Weights==0] = 0
+Delays[0][1] = 50*ms
+Delays[2][3] = dt
 Delays_samp = time2index(Delays)
 
 buffer_len = int(max(np.max(Delays_samp[:])+1, min_buffer_len))
@@ -164,11 +166,13 @@ def record_v_to_buffer():
             # a_syn.v_delayed = history_buffer[a_syn.i[:], -this_delay_samp-1]
         
         this_delay_samp = time2index(a_syn.delay) 
+        buffer_from_idx = ij_to_flat_index(a_syn.group_i, a_syn.i[:])
+        a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp-1]
+
             # a_syn.v_delayed = history_buffer[a_syn.i[:], -a_syn.delay_samp[:]-1]
             
         #NOTE: a_syn.i[:] represents neuron index NOT group index
         
-        buffer_from_idx = ij_to_flat_index(a_syn.group_i, a_syn.i[:])
         a_syn.v_delayed = history_buffer[buffer_from_idx, -this_delay_samp-1]
         pass
         
