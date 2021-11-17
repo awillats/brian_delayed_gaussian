@@ -20,10 +20,10 @@ def time2index(t):
     return np.round(t/dt).astype(int)
 
     
-min_buffer_len = time2index(250*ms)
+min_buffer_len = time2index(50*ms)
 
 N_groups = 5 # gets re-written later
-N_neurons = 2
+N_neurons = 10
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
 tau = 5*10*ms
@@ -35,7 +35,7 @@ def ij_to_flat_index(gi, ni, N_high=N_groups, N_low=N_neurons):
     # return 
 
 #%%
-base_weight = 2.5 / N_neurons;
+base_weight = 2*2.5 / N_neurons;
 base_delay = tau * 0.5
 base_delay_samp = time2index(base_delay)
 
@@ -127,15 +127,7 @@ all_monitors = [StateMonitor(g,'v', record=True) for g in all_groups]
 #%%
 # following: https://brian.discourse.group/t/delay-for-summed-variables-in-synapses/424/2
 
-'''
-current issue:
-- outputs are behaving as though driven by the same presynaptic targets 
-    - likely a reference / pointer issue 
-    - could also be a 
-'''
 
-for s in all_synapses:
-    print(s.i)
     #%%
 
 @network_operation
@@ -247,5 +239,5 @@ figh.update_layout(width=500, height=150*N_groups)
 
 # figh.update_xaxes(range=[0,duration/second])
 
-figh.update_traces(line=dict(width=2))
+figh.update_traces(line=dict(width=1))
 figh
