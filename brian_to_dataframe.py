@@ -78,7 +78,10 @@ def expand_volt_monitor_to_df_columns(data_dict, df=None, channel_name=''):
     for idx,v_name in enumerate(v_names):
         df[v_name] = data_dict['v'][:,idx]    
     return df
-
+def melt_group_df_voltage(df, output_var='voltage'):
+    dfm = df.melt(id_vars='time [ms]',var_name=['population'],value_name=output_var)
+    dfm['total_neuron_idx'] = dfm['population']
+    return dfm
 def melt_hier_df_voltage(df, output_var='voltage'):
     # using hierarchical ID for faceting 
     dfm = df.melt(id_vars='time [ms]',var_name=['population','neuron'],value_name=output_var)

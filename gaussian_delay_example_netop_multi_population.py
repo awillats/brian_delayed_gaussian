@@ -23,10 +23,10 @@ def time2index(t):
 min_buffer_len = time2index(0*ms)
 
 N_groups = 5 
-N_neurons = 1
+N_neurons = 2
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
-tau = 5*10*ms
+tau = 10*ms
 sigma = 50
 
 def ij_to_flat_index(gi, ni, N_high=N_groups, N_low=N_neurons):
@@ -228,6 +228,7 @@ if N_total > 50:
 
 fig = px.line(df_m, x='time [ms]', y='voltage', color='population')
 fig.update_layout(width=500, height=300)
+# fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
 fig
 
 #%%
@@ -249,7 +250,7 @@ if N_neurons > 1:
 #     title=f'last {buffer_len} samples of history saved into buffer')
 # figh.update_layout(width=500, height=80*N_nodes*N_neurons)
 # figh.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
-
+df_m
 figh = px.line(pd.concat([df_m, dfhist_m ] ), x='time [ms]', y='voltage', facet_row='population',color='compare population',
     title=f'last {buffer_len} samples of history saved into buffer')
 # figh.update_traces(marker=dict(size=1,opacity=.9))    
@@ -259,3 +260,71 @@ figh.update_layout(width=500, height=150*N_groups)
 
 figh.update_traces(line=dict(width=1))
 figh
+#%%
+
+# Construct cross-correlation matrix (as dataframe) from time-series data-frames
+dfh.head(2)
+# first average across neurons
+dfhg = dfh.groupby(axis='columns',level=0).mean()
+# fig = px.line(melt_group_df_voltage(dfhg), x='time [ms]', y='voltage', facet_row='population',color='population')
+# fig
+dfhg
+#%%
+fig = px.line(melt_group_df_voltage(dfhg), x='time [ms]', y='voltage', color='population')
+fig.update_layout(width=600, height=300)
+fig.write_html('gaussian_timeseries.html')
+#%%
+X = dfhg.to_numpy()
+X.shape
+
+# assumes time is last column, timeseries is contiguous
+# XCORRS = {}
+dfx = pd.DataFrame(columns=pd.MultiIndex.from_product( [group_names, group_names]))
+dfx.head()
+def corr_col(i,j):
+    return np.correlate(X[:-1,i], X[:-1,j],'same')
+for i in range(X.shape[1]-1):
+    for j in range(X.shape[1]-1):
+        dfx[(group_names[i],group_names[j])] = corr_col(i,j)  - corr_col(i,i)
+        # 2 -corr_col(j,j)/2
+        # - np.correlate(X[:-1,j], X[:-1,j],'same')
+dfx['time [ms]'] = (dfx.index - len(dfx.index)/2)*dt/ms
+
+norm_dfx = dfx
+# norm_dfx=(dfx-dfx.mean())/dfx.std()
+# norm_dfx=dfx/dfx.std()
+# norm_dfx=(dfx-dfx.mean())
+
+norm_dfx['time [ms]'] = dfx['time [ms]']
+
+dfx_m = melt_hier_df_voltage(norm_dfx)
+dfx_m
+fig = px.line(dfx_m,x='time [ms]',y='voltage',facet_row='population',facet_col='neuron')
+fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+fig
+fig.write_html('gaussian_xcorr.html')
+#%%
+# dfhg.mean()
+# mi2 = pd.MultiIndex.from_product( [list(mi), list(mi)])
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#%%
+
