@@ -322,27 +322,44 @@ external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 # https://stackoverflow.com/questions/63459424/how-to-add-multiple-graphs-to-dash-app-on-a-single-browser-page
 
-app.layout = html.Div(children=[
-    # All elements from the top of the page
-    html.Div([
+
+
+def dash_app_from_figs(fig_list, port=8050):
+    n_fig = len(fig_list)
+    col_w = int(round(12/n_fig))
+    
+    import dash
+    from dash import dcc
+    from dash import html
+    # app = dash.Dash(__name__)
+    external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+    
+    app.layout = html.Div(children=[
+        # All elements from the top of the page
         html.Div([
-            html.H1(children='Cross-correlations'),
+            html.Div([
+                html.H1(children='Cross-correlations'),
 
-            html.Div(children='''
-                From gaussian network.
-            '''),
-
-            html.Div([dcc.Graph( id='graph1', figure=figt)], className='five columns'), 
-            html.Div([dcc.Graph( id='graph2', figure=fig)], className='five columns'), 
+                html.Div(children='''
+                    From gaussian network.
+                '''),
+                
+                
+                for i,fig in enumerate(fig_list):
+                    html.Div([dcc.Graph( id=f'graph{i}', figure=fig)], className='five columns'), 
+                # html.Div([dcc.Graph( id='graph2', figure=fig)], className='five columns'), 
+            ], className='row'),
         ], className='row'),
-    ], className='row'),
-])
+    ])
 
-try:
-    if __name__ == '__main__':
-        app.run_server(debug=True,port=8050)
-except err:
-    print(err)
+    try:
+        if __name__ == '__main__':
+            app.run_server(debug=True,port=8050)
+    except err:
+        print(err)
+
+dash_app_from_figs([figt,fig])
 
 '''
 if port is in use, try:

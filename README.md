@@ -6,6 +6,9 @@
 
 - **secondary goal:** export data from StateMonitors to pandas DataFrames
   - format suitable for df-based plotting libraries like plotly
+
+- **tertiary goal:** deploy interactive cross-correlation figures as a Dash app (through Heroku + GitHub)
+
   
 # Components of a solution
 1. Extract current state of network (ideally as a column) 
