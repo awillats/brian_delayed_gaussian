@@ -8,9 +8,9 @@ import plotly.express as px
 from brian_to_dataframe import *
 from ring_buffers import *
 
-%matplotlib inline
-%load_ext autoreload
-%autoreload 2
+# %matplotlib inline
+# %load_ext autoreload
+# %autoreload 2
 
 # %%
 start_scope()
@@ -23,11 +23,11 @@ def time2index(t):
 min_buffer_len = time2index(0*ms)
 
 N_groups = 5 
-N_neurons = 2
+N_neurons = 1
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
-tau = 10*ms
-sigma = 50
+tau = .5*10*ms
+sigma = 5
 
 def ij_to_flat_index(gi, ni, N_high=N_groups, N_low=N_neurons):
     return gi*N_low + ni
@@ -35,20 +35,20 @@ def ij_to_flat_index(gi, ni, N_high=N_groups, N_low=N_neurons):
     # return 
 
 #%%
-base_weight = 2*2.5 / N_neurons;
+base_weight = 3*1 / N_neurons;
 base_delay = tau * 0.5
 base_delay_samp = time2index(base_delay)
 
 
 Weights = np.zeros((N_groups,N_groups))
 Weights[0][1] = base_weight 
-Weights[2][3] = base_weight
+Weights[1][2] = base_weight
 def is_ij_valid(i,j):
     return Weights[i][j] != 0
 Delays = np.ones((N_groups, N_groups)) * base_delay
 Delays[Weights==0] = 0
 Delays[0][1] = 50*ms
-Delays[2][3] = dt
+Delays[1][2] = 40*ms
 Delays_samp = time2index(Delays)
 
 buffer_len = int(max(np.max(Delays_samp[:])+1, min_buffer_len))
@@ -170,18 +170,18 @@ print(f'{duration} second simulation took\n {run_walltime:.3f} seconds to simula
 # %%
 
 
-#%% markdown
-5x10 neurons, 500 buffer, DQ Buffer:
-
-1.5 sec without writing  
--4 seconds writing 0 to v_delayed  
-2-5 seconds with writting to v_delayed  (from Numpy buffer)
-6 seconds with writting to v_delayed  (from DQ buffer, with get_delay then indexing by neuron)
-27 seconds with writting to v_delayed  (from DQ buffer, with clunky custom 2D indexing)
-
-
-
-reading out of history_buffer is the bottleneck !
+# #%% markdown
+# 5x10 neurons, 500 buffer, DQ Buffer:
+# 
+# 1.5 sec without writing  
+# -4 seconds writing 0 to v_delayed  
+# 2-5 seconds with writting to v_delayed  (from Numpy buffer)
+# 6 seconds with writting to v_delayed  (from DQ buffer, with get_delay then indexing by neuron)
+# 27 seconds with writting to v_delayed  (from DQ buffer, with clunky custom 2D indexing)
+# 
+# 
+# 
+# reading out of history_buffer is the bottleneck !
 
 
 
@@ -270,17 +270,25 @@ dfhg = dfh.groupby(axis='columns',level=0).mean()
 # fig
 dfhg
 #%%
-fig = px.line(melt_group_df_voltage(dfhg), x='time [ms]', y='voltage', color='population')
-fig.update_layout(width=600, height=300)
-fig.write_html('gaussian_timeseries.html')
+figt = px.line(melt_group_df_voltage(dfhg), x='time [ms]', y='voltage', facet_row='population',color='population')
+figt.update_layout(width=600, height=500)
+figt.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
+figt.write_html('gaussian_timeseries.html')
+figt
 #%%
 X = dfhg.to_numpy()
 X.shape
+# xstd=np.nanstd(X,axis=0)
+# (X/xstd).shape
+do_norm_outputs=True
+if do_norm_outputs:
+    X = (X-np.nanmean(X,axis=0))/np.nanstd(X,axis=0)
+
 
 # assumes time is last column, timeseries is contiguous
 # XCORRS = {}
 dfx = pd.DataFrame(columns=pd.MultiIndex.from_product( [group_names, group_names]))
-dfx.head()
+# dfx.head()
 def corr_col(i,j):
     return np.correlate(X[:-1,i], X[:-1,j],'same')
 for i in range(X.shape[1]-1):
@@ -299,10 +307,59 @@ norm_dfx['time [ms]'] = dfx['time [ms]']
 
 dfx_m = melt_hier_df_voltage(norm_dfx)
 dfx_m
-fig = px.line(dfx_m,x='time [ms]',y='voltage',facet_row='population',facet_col='neuron')
+fig = px.line(dfx_m,x='time [ms]',y='voltage',facet_row='population',color='neuron')
 fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-fig
+fig.update_layout(width=300,height=500)
 fig.write_html('gaussian_xcorr.html')
+fig
+#%%
+# https://stackoverflow.com/questions/63459424/how-to-add-multiple-graphs-to-dash-app-on-a-single-browser-page
+import dash
+from dash import dcc
+from dash import html
+# app = dash.Dash(__name__)
+external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+# https://stackoverflow.com/questions/63459424/how-to-add-multiple-graphs-to-dash-app-on-a-single-browser-page
+
+app.layout = html.Div(children=[
+    # All elements from the top of the page
+    html.Div([
+        html.Div([
+            html.H1(children='Cross-correlations'),
+
+            html.Div(children='''
+                From gaussian network.
+            '''),
+
+            html.Div([dcc.Graph( id='graph1', figure=figt)], className='five columns'), 
+            html.Div([dcc.Graph( id='graph2', figure=fig)], className='five columns'), 
+        ], className='row'),
+    ], className='row'),
+])
+
+try:
+    if __name__ == '__main__':
+        app.run_server(debug=True,port=8050)
+except err:
+    print(err)
+
+'''
+if port is in use, try:
+> sudo lsof -i:8050                                                                                                                                                                                              🐍:(neuroenv) 
+then:
+> kill (id of what came up)
+https://stackoverflow.com/questions/19071512/socket-error-errno-48-address-already-in-use
+'''
+
+#%%
+# '''
+# -color by time (whether in or out of candidate window)
+# -add annotation rectangle
+# -stack multple weight values
+# '''
+
+# fig.write_html('gaussian_xcorr.html')
 #%%
 # dfhg.mean()
 # mi2 = pd.MultiIndex.from_product( [list(mi), list(mi)])
