@@ -191,8 +191,8 @@ print(df_tail.compare(dfhist_tail))
 history_group_names = ['buffer A','buffer B']
 rename_groups = dict(zip(group_names, history_group_names))
 
-df_m = melt_hier_df_voltage(null_last_row(dfh))
-dfhist_m = melt_hier_df_voltage(null_last_row(dfhist))
+df_m = melt_hier_df_timeseries(null_last_row(dfh))
+dfhist_m = melt_hier_df_timeseries(null_last_row(dfhist))
 
 df_m['compare population'] = df_m['population']
 dfhist_m['compare population'] = dfhist_m['population'] 
@@ -215,7 +215,7 @@ fig
 #%%
 'plots each channel as a row'
 if N_neurons > 1:
-    # fig = px.line(df_m,x='time [ms]',y='voltage',facet_row='total_neuron_idx',color='population')
+    # fig = px.line(df_m,x='time [ms]',y='voltage',facet_row='flat_hier_idx',color='population')
     # fig.update_layout(width=500, height=80*N_nodes*N_neurons)
     # fig.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
     ' collapses into a row per population '
@@ -227,7 +227,7 @@ if N_neurons > 1:
 
 
 #%%
-# figh = px.line(pd.concat([df_m, dfhist_m]), x='time [ms]', y='voltage', facet_row='total_neuron_idx',color='compare population',
+# figh = px.line(pd.concat([df_m, dfhist_m]), x='time [ms]', y='voltage', facet_row='flat_hier_idx',color='compare population',
 #     title=f'last {buffer_len} samples of history saved into buffer')
 # figh.update_layout(width=500, height=80*N_nodes*N_neurons)
 # figh.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))

@@ -79,11 +79,11 @@ dfh.head(10)
 # using hierarchical ID for faceting 
 dfm = dfh.melt(id_vars='time [ms]',var_name=['population','neuron'],value_name='voltage')
 # Create a combined id column to facet by
-dfm['total_neuron_idx'] = dfm['population']+ dfm['neuron'].astype(str)
+dfm['flat_hier_idx'] = dfm['population']+ dfm['neuron'].astype(str)
 # dfm.head()
 #%%
 'plots each channel as a row'
-fig = px.line(dfm,x='time [ms]',y='voltage',facet_row='total_neuron_idx',color='population')
+fig = px.line(dfm,x='time [ms]',y='voltage',facet_row='flat_hier_idx',color='population')
 fig.update_layout(width=500, height=80*N_nodes*N_neurons)
 fig.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
 

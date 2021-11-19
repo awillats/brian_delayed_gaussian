@@ -189,11 +189,7 @@ print(f'{duration} second simulation took\n {run_walltime:.3f} seconds to simula
 # 6 seconds with writting to v_delayed  (from DQ buffer, with get_delay then indexing by neuron)
 # 27 seconds with writting to v_delayed  (from DQ buffer, with clunky custom 2D indexing)
 # 
-# 
-# 
 # reading out of history_buffer is the bottleneck !
-
-
 
 #%%
 #add simple offset for plotting
@@ -209,18 +205,16 @@ dfh = volt_monitors_to_hier_df(all_monitors, group_names, neuron_names)
 # dfh.tail(10)
 
 #%%
-dfhist_tail = dfhist.tail(buffer_len).reset_index(drop=True)
-df_tail = dfh.tail(buffer_len).reset_index(drop=True)
-
 print('any differences between buffer and monitor output?')
-print(df_tail.compare(dfhist_tail))
+print(compare_df(df, dfhist, buffer_len)
+
 #%%
 history_group_names = ['history of '+n for n in group_names]
 
 rename_groups = dict(zip(group_names, history_group_names))
 
-df_m = melt_hier_df_voltage(null_last_row(dfh))
-dfhist_m = melt_hier_df_voltage(null_last_row(dfhist))
+df_m = melt_hier_df_timeseries(null_last_row(dfh))
+dfhist_m = melt_hier_df_timeseries(null_last_row(dfhist))
 
 df_m['compare population'] = df_m['population']
 dfhist_m['compare population'] = dfhist_m['population'] 
@@ -244,7 +238,7 @@ fig
 #%%
 'plots each channel as a row'
 if N_neurons > 1:
-    # fig = px.line(df_m,x='time [ms]',y='voltage',facet_row='total_neuron_idx',color='population')
+    # fig = px.line(df_m,x='time [ms]',y='voltage',facet_row='flat_hier_idx',color='population')
     # fig.update_layout(width=500, height=80*N_nodes*N_neurons)
     # fig.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
     ' collapses into a row per population '
@@ -256,7 +250,7 @@ if N_neurons > 1:
 
 
 #%%
-# figh = px.line(pd.concat([df_m, dfhist_m]), x='time [ms]', y='voltage', facet_row='total_neuron_idx',color='compare population',
+# figh = px.line(pd.concat([df_m, dfhist_m]), x='time [ms]', y='voltage', facet_row='flat_hier_idx',color='compare population',
 #     title=f'last {buffer_len} samples of history saved into buffer')
 # figh.update_layout(width=500, height=80*N_nodes*N_neurons)
 # figh.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))

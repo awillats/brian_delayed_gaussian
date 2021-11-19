@@ -9,6 +9,7 @@ import pandas as pd
 
 
 #%%
+# Additional helper functions
 def null_last_row(df):
     '''
     called to break up transitions between series for plotly based on melted dataframe
@@ -16,7 +17,21 @@ def null_last_row(df):
     #assumes time column is on the far right side
     df.iloc[-1,:-1]=None
     return df
+
+def time_selection_df(df,time_range, time_name = 'time [ms]'):
+    return df[(df[time_name]>time_range[0]) & (df[time_name]<time_range[1])]
+
+def compare_df(df1, df2, tail_amount):
+    '''
+    return differences in the last <tail_amount> samples of a dataframe 
+    '''
+    df1_tail = df1.tail(tail_amount).reset_index(drop=True)
+    df2_tail = df2.tail(tail_amount).reset_index(drop=True)
     
+    return df1_tail.compare(df2_tail)
+
+#%%
+# Brian -> Pandas conversion functions
 def volt_monitors_to_hier_df(all_monitors, group_names, neuron_names):
     dfh = hier_df_from_lists(group_names, neuron_names)
     for idx,mon in enumerate(all_monitors):
@@ -78,16 +93,19 @@ def expand_volt_monitor_to_df_columns(data_dict, df=None, channel_name=''):
     for idx,v_name in enumerate(v_names):
         df[v_name] = data_dict['v'][:,idx]    
     return df
-def melt_group_df_voltage(df, output_var='voltage'):
-    dfm = df.melt(id_vars='time [ms]',var_name=['population'],value_name=output_var)
-    dfm['total_neuron_idx'] = dfm['population']
+
+def melt_group_df_timeseries(df, high_level_name = 'population', output_var='voltage', time_name='time [ms]'):
+    dfm = df.melt(id_vars=time_name, var_name=[high_level_name], value_name=output_var)
+    dfm['flat_hier_idx'] = dfm[high_level_name]
     return dfm
-def melt_hier_df_voltage(df, output_var='voltage'):
+    
+def melt_hier_df_timeseries(df, high_level_name='population', low_level_name='neuron', output_name='voltage', time_name='time [ms]'):
     # using hierarchical ID for faceting 
-    dfm = df.melt(id_vars='time [ms]',var_name=['population','neuron'],value_name=output_var)
+    dfm = df.melt(id_vars=time_name, var_name=[high_level_name,low_level_name], value_name=output_name)
     # Create a combined id column to facet by
-    dfm['total_neuron_idx'] = dfm['population']+ dfm['neuron'].astype(str)
+    dfm['flat_hier_idx'] = dfm[high_level_name]+ dfm[low_level_name].astype(str)
     return dfm
+    
 #%%
 # This code gets the final states, but doesn't unpack the entire timeseries
 # df= Ga.get_states(units=False,format='pandas')

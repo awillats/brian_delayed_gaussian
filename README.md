@@ -14,8 +14,26 @@
 # Adam's current development priorities 
 - [ ] wrap up cross-correlation & plotting
   - [ ] clean up labels on cross-correlation dataframe
+    
+    - nodes x time to
+    - from node, to node, lag [ms]
+    
+    - can I normalize without casting to numpy?
+      - why cast to numpy?
+        - for use in functions 
+        - to freeze time index sorting
+        - to use :-1 slicing 
+      - pass columns instead OR use pandas functions
+        - this operation works well enough: https://stackoverflow.com/questions/28576540/how-can-i-normalize-the-data-in-a-range-of-columns-in-my-pandas-dataframe/28577480
+    
+    
   - [ ] robustify normalization code
     - ?? hoist options to the top of the script
+    - [ ] encapsulate `timeseries_df_to_xcorr`
+      - [ ]  bundle for loop into function 
+     
+    - [ ] encapsulate encoding 2 columns down to one
+      - look into plotly combining columns
     
   - [ ] translate dash app to combined figures for static export
   - [ ] debug plotly xrange issue
@@ -211,5 +229,7 @@
     - appends time column
   - `expand_volt_monitor_to_df_columns()`
     - makes non-nested dataframe, embedding hierarchy in column names instead
-
+    
+    
+    
     

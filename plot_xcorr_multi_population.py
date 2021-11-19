@@ -8,9 +8,9 @@ import plotly.express as px
 from brian_to_dataframe import *
 from ring_buffers import *
 
-# %matplotlib inline
-# %load_ext autoreload
-# %autoreload 2
+%matplotlib inline
+%load_ext autoreload
+%autoreload 2
 
 '''
 rename XCORR dataframe!
@@ -25,8 +25,7 @@ tau blurs xcorr peaks out to wider lags!
 
 longer sims means easier xcorr decoding 
 '''
-def time_sel_df(df,time_range):
-    return df[(df['time [ms]']>time_range[0]) & (df['time [ms]']<time_range[1])]
+
 # %%
 start_scope()
 duration = 2000*ms
@@ -42,7 +41,7 @@ N_neurons = 1
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
 tau = 0.5*10*ms
-sigma = 1
+base_sigma = 1
 
 def ij_to_flat_index(gi, ni, N_high=N_groups, N_low=N_neurons):
     return gi*N_low + ni
@@ -106,7 +105,7 @@ FAKE_THRESHOLD = 'v>999999'
 #option 2: store delay in custom attribute
 all_groups = [NeuronGroup(N_neurons, eqs, method='euler') for i in range(N_groups)]
 for g in all_groups:
-    g.sigma=sigma
+    g.sigma=base_sigma
 # all_groups[2].sigma=0
 
 #%%
@@ -218,22 +217,20 @@ dfhist['time [ms]'] = all_monitors[0].t[-buffer_len:]*1000/second
 # dfhist.tail(10)
 
 #%%
-dfh = volt_monitors_to_hier_df(all_monitors, group_names, neuron_names)
-# dfh.tail(10)
+df = volt_monitors_to_hier_df(all_monitors, group_names, neuron_names)
+# df.tail(10)
 
 #%%
-dfhist_tail = dfhist.tail(buffer_len).reset_index(drop=True)
-df_tail = dfh.tail(buffer_len).reset_index(drop=True)
-
 print('any differences between buffer and monitor output?')
-print(df_tail.compare(dfhist_tail))
+print(compare_df(df, dfhist, buffer_len))
+
 #%%
 history_group_names = ['history of '+n for n in group_names]
 
 rename_groups = dict(zip(group_names, history_group_names))
 
-df_m = melt_hier_df_voltage(null_last_row(dfh))
-dfhist_m = melt_hier_df_voltage(null_last_row(dfhist))
+df_m = melt_hier_df_timeseries(null_last_row(df))
+dfhist_m = melt_hier_df_timeseries(null_last_row(dfhist))
 
 df_m['compare population'] = df_m['population']
 dfhist_m['compare population'] = dfhist_m['population'] 
@@ -243,21 +240,18 @@ nudge_y = 0
 dfhist_m['voltage'] = dfhist_m['voltage'] + nudge_y
 #%%
 
-if N_total > 50:
-    print('DANGER, plots are going to take a long time')
 
 #%%
 
 
 fig = px.line(df_m, x='time [ms]', y='voltage', color='population')
 fig.update_layout(width=500, height=300)
-# fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
 fig
 
 #%%
 'plots each channel as a row'
 if N_neurons > 1:
-    # fig = px.line(df_m,x='time [ms]',y='voltage',facet_row='total_neuron_idx',color='population')
+    # fig = px.line(df_m,x='time [ms]',y='voltage',facet_row='flat_hier_idx',color='population')
     # fig.update_layout(width=500, height=80*N_nodes*N_neurons)
     # fig.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
     ' collapses into a row per population '
@@ -269,7 +263,7 @@ if N_neurons > 1:
 
 
 #%%
-# figh = px.line(pd.concat([df_m, dfhist_m]), x='time [ms]', y='voltage', facet_row='total_neuron_idx',color='compare population',
+# figh = px.line(pd.concat([df_m, dfhist_m]), x='time [ms]', y='voltage', facet_row='flat_hier_idx',color='compare population',
 #     title=f'last {buffer_len} samples of history saved into buffer')
 # figh.update_layout(width=500, height=80*N_nodes*N_neurons)
 # figh.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
@@ -286,18 +280,23 @@ figh
 #%%
 
 # Construct cross-correlation matrix (as dataframe) from time-series data-frames
-dfh.head(2)
+df.head(2)
 # first average across neurons
-dfhg = dfh.groupby(axis='columns',level=0).mean()
-# fig = px.line(melt_group_df_voltage(dfhg), x='time [ms]', y='voltage', facet_row='population',color='population')
-# fig
-dfhg
+df_avg = df.groupby(axis='columns', level=0).mean()
+df_avg
 #%%
-figt = px.line(melt_group_df_voltage(dfhg), x='time [ms]', y='voltage', facet_row='population',color='population')
+figt = px.line(melt_group_df_timeseries(df_avg), x='time [ms]', y='voltage', 
+    facet_row='population',color='population',labels={'population':'pop'})
 figt.update_layout(width=600, height=500)
-figt.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
 # figt.write_html('figs/gaussian_timeseries.html')
+figt.for_each_annotation(lambda a: a.update(text=a.text.split('=')[-1], ))
+figt.for_each_annotation(lambda a: a.update(x=-.08, textangle=-90) )
+
+# figt.for_each_annotation(lambda a: print(a) )
+
+figt.update_layout(showlegend=False)
 figt
+
 #%%
 do_norm_outputs = True # seems like generally a good idea
 do_sub_auto_corr = False 
@@ -306,7 +305,9 @@ do_sub_auto_corr = False
     # often subtracting the autocorr of the input carves a valley from the center of the xcorr, which is at least distracting 
 do_norm_xcorr = False
 
-X = dfhg.to_numpy()
+
+
+X = df_avg.to_numpy()
 X.shape
 # xstd=np.nanstd(X,axis=0)
 # (X/xstd).shape
@@ -314,21 +315,29 @@ X.shape
 if do_norm_outputs:
     X = (X-np.nanmean(X,axis=0))/np.nanstd(X,axis=0)
 
-
 # assumes time is last column, timeseries is contiguous
 # XCORRS = {}
-dfx = pd.DataFrame(columns=pd.MultiIndex.from_product( [group_names, group_names]))
-# dfx.head()
+
+' initialize xcorr dataframe from product of group names '
+dfx = pd.DataFrame(columns=pd.MultiIndex.from_product( [group_names, group_names]).set_names(['from','to']))
+dfx.head()
+
 def corr_col(i,j):
     return np.correlate(X[:-1,i], X[:-1,j],'same')
+    
 for i in range(X.shape[1]-1):
     for j in range(X.shape[1]-1):
         this_xcorr = corr_col(i,j)  
         if do_sub_auto_corr or i==j:
             norm_i = i
             this_xcorr -= corr_col(norm_i,norm_i)
+        this_xcorr /= len(this_xcorr)
+            
+        # xcorr_df(df[i], df[j]
         dfx[(group_names[i],group_names[j])] = this_xcorr
-dfx['time [ms]'] = (dfx.index - len(dfx.index)/2)*dt/ms
+        
+#NOTE: this should be specified in terms of df_avg.time!        
+dfx['lag [ms]'] = (dfx.index - len(dfx.index)/2)*dt/ms
 
 
 if do_norm_xcorr:
@@ -338,15 +347,22 @@ if do_norm_xcorr:
 else:
     norm_dfx = dfx
     
-norm_dfx['time [ms]'] = dfx['time [ms]']
 
 time_range = np.array([-1,1])*200
 
-dfx_m = melt_hier_df_voltage(norm_dfx)
-dfx_m
-figx = px.line(time_sel_df(dfx_m,time_range) , x='time [ms]',y='voltage',facet_row='population',color='neuron')
-figx.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]+'→'))
-figx.update_layout(width=300,height=500)
+dfx_m = melt_hier_df_timeseries(norm_dfx,'from','to','xcorr','lag [ms]')
+dfx_m['to'] = dfx_m['to'].apply(lambda A: 'to '+A)
+
+figx = px.line(time_selection_df(dfx_m,time_range, 'lag [ms]') , x='lag [ms]',y='xcorr',
+    facet_row='from',color='to')
+    
+# figx.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]+'→'))
+figx.for_each_annotation(lambda a: a.update(text='from '+a.text.split("=")[-1]))
+# figx.for_each_trace(lambda a: a.update(text=a.text.split("=")[-1]+'→'))
+
+figx.update_layout(width=350,height=500)
+figx.layout.legend.x = 1.15
+
 # figx.update_yaxes(range=[-5000,15000])
 # figx.write_html('figs/gaussian_xcorr.html')
 figx
@@ -365,7 +381,7 @@ import dash_functions as my_dash
 
 # fig.write_html('figs/gaussian_xcorr.html')
 #%%
-# dfhg.mean()
+# df_avg.mean()
 # mi2 = pd.MultiIndex.from_product( [list(mi), list(mi)])
 
 
