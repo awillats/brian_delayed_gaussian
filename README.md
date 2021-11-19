@@ -20,13 +20,14 @@
 
 ## Indexing conventions (for cylindrical history buffer)
 - [time x neuron] index
-  - comes from Morrison et al. 2007 via Vectorized Algos.
+  - comes from Morrison et al. 2007 via "Vectorized Algos." paper
   - consistent with dataframe view 
   - `np.concatenate([ G.v[:] for G in all_groups ])` returns a row-vector
 - [neuron x time] 
   - marcel and RTH's solutions both use this
   - allows current state to be inserted as a column 
   - consistent with plotting time on x-axis 
+  
 ---
 ## Advanced features 
 - [x] generalize beyond two populations 
@@ -58,10 +59,10 @@
     - could be stored sparsely
     - connections would typically depend on a sparse selection of delays
     - could be implemented as nested list / matrix of lists 
-    
-- [ ] faster solutions 
+## Speed & efficiency:    
+### Faster indexing / appending
   - [ ] instead of rolling buffer, move the index
-    - see cylindrical array in Vectorized Algos
+    - see cylindrical array in "Vectorized Algos"
     - see also implementation by RTH: https://brian.discourse.group/t/delay-in-continuous-connections/509/6
 
   - [ ] C++ implementation
@@ -72,8 +73,17 @@
       - [example from github issue](https://github.com/brian-team/brian2genn/issues/123#issuecomment-720425213)   
         - note this is for Brian2GeNN
       - https://brian.discourse.group/t/user-defined-functions/271
-  - conflict between sparse list-based solution and vectorized indexing / insertion
+### Storage
+  - tension between sparse list-based solution and vectorized indexing / insertion
     - something like matlab's sparse matrix representation could bridge the gap
+      - scipy has a 
+      - so does PyTorch: [torch.sparse](https://pytorch.org/docs/stable/sparse.html)
+      - discussion and benchmarking of [sparse vs dense matrices on stack overflow](https://stackoverflow.com/questions/36969886/using-a-sparse-matrix-versus-numpy-array)
+    - "Vectorized Algos" discusses:
+      - dense matrix storage 
+      - list of lists 
+      - compressed spare row
+
 
 - [ ] only store history from variables which influence downstream targets
   - currently storing history of entire network
@@ -87,7 +97,7 @@
     ```
     - store "keys" for sources somewhere?
     
-- [ ] friendly synatax for expressing delayed relationships 
+- [ ] friendly syntax for expressing delayed relationships 
   - ideally, consistent with [delay for spiking synapses](https://brian2.readthedocs.io/en/stable/user/synapses.html#delays)
     - `synapses = Synapses(sources, targets, '...', on_pre='...', delay=1*ms)`
     - would be especially convenient to be able to switch between spiking and rate-based implementations with minimal model-specification code differences
