@@ -3,19 +3,35 @@
 
 - Looking to simulate a circuit with the Brian2 simulator framework which represents a rate model of a network with delay in synapses
   - See ["Delay in continuous connections"](https://brian.discourse.group/t/delay-in-continuous-connections/509) for more context
+  - incrementally progressing from simplest solutions, to more efficient ones
 
 - **secondary goal:** export data from StateMonitors to pandas DataFrames
   - format suitable for df-based plotting libraries like plotly
 
-- **tertiary goal:** deploy interactive cross-correlation figures as a Dash app (through Heroku + GitHub)
+- ~~**tertiary goal:** deploy interactive cross-correlation figures as a Dash app (through Heroku + GitHub)~~
+  - after trying this, I would prefer a static html export
 ---
 # Adam's current development priorities 
 - [ ] wrap up cross-correlation & plotting
   - [ ] clean up labels on cross-correlation dataframe
+  - [ ] robustify normalization code
+    - ?? hoist options to the top of the script
+    
   - [ ] translate dash app to combined figures for static export
   - [ ] debug plotly xrange issue
-- [ ] partition plotting-related and cross-correlation code from delay-buffer-related code 
+  - [ ] add nicer cross-correlation annotation
+
+- [~] partition plotting-related and cross-correlation code from delay-buffer-related code 
+  - [ ] update script directory
+  - [ ] perhaps have separate branches?
+
+- [ ] debug multiple input synapses to same current
+
+- [ ] cleanup setting values for sigma
+  - "sigma" is an internal variable of group "neurongroup_1", but also exists in the run namespace with the value 1. The internal variable will be used.
+  
 - [ ] clean up indexing convention
+
 - [ ] implement, demonstrate "rolling index" 
 
 ---
@@ -138,18 +154,42 @@
 - `gaussian_example_base.py`
   - constructs a 2-node network *without* synaptic delay of any kind
   - intended as a sanity check and point of comparison to the delayed version
-  
-- `gaussian_delay_example_record_history.py`
-  - uses `network_operation` to store values in global ring buffer
 
-- `gaussian_delay_example_netop_stim.py`
+- `demo_netop_stim.py`
   - uses `network_operation` to:
     - store values in ring buffer 
     - map history buffer to corresponding inputs 
     - apply synaptic effect from delayed voltages
+
+- `demo_netop_multi_population.py`
+  - generalized delayed stimulation to more than two groups
+  - exports voltage monitors to dataframes for plotting
   
-- ~~`gaussian_delay_example_runreg.py`~~
-- ~~`gaussian_delay_example_cpp.py`~~
+- 🚧 `plot_xcorr_multi_population.py` 🚧
+  - largely mimics the `multi_population` script
+  - adds interactive plotly plots of cross-correlations 
+    - very helpful to verify delayed interactions are implemented as intended 
+    - but also this means a lot of extraneous code
+  - Adam currently using it for some ad-hoc parameter sweeps
+
+
+<details><summary> archived scripts </summary>
+  
+  - `gaussian_delay_example_record_history.py`
+    - just demonstrates recording to buffer
+    - uses `network_operation` to store values in global ring buffer
+</details>
+
+<details><summary> possible future scripts </summary>
+  
+- `gaussian_delay_example_runreg.py`
+  - try run_regularly rather than network_operation
+  
+- `gaussian_delay_example_cpp.py`
+  - after testing storage structures in python, convert to c++ standalone mode
+  
+</details>
+
 
 ## Helper functions 
 - `ring_buffers`

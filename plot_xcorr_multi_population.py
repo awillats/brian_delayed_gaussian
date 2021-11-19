@@ -354,7 +354,7 @@ figx
       
 #%%
 import dash_functions as my_dash
-my_dash.dash_app_from_figs([figt,figx], col_widths=None, title='Cross-correlations',subtitle='from a delayed gaussian network')
+# my_dash.dash_app_from_figs([figt,figx], col_widths=None, title='Cross-correlations',subtitle='from a delayed gaussian network')
 
 #%%
 # '''
