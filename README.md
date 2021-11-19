@@ -8,6 +8,17 @@
   - format suitable for df-based plotting libraries like plotly
 
 - **tertiary goal:** deploy interactive cross-correlation figures as a Dash app (through Heroku + GitHub)
+---
+# Adam's current development priorities 
+- [ ] wrap up cross-correlation & plotting
+  - [ ] clean up labels on cross-correlation dataframe
+  - [ ] translate dash app to combined figures for static export
+  - [ ] debug plotly xrange issue
+- [ ] partition plotting-related and cross-correlation code from delay-buffer-related code 
+- [ ] clean up indexing convention
+- [ ] implement, demonstrate "rolling index" 
+
+---
 
   
 # Components of a solution
@@ -18,15 +29,7 @@
     - using [`network_operation` [docs]](https://brian2.readthedocs.io/en/stable/reference/brian2.core.operations.network_operation.html) or [`run_regularly` [docs]](https://brian2.readthedocs.io/en/stable/reference/brian2.core.operations.network_operation.html)
 3. access & apply influence of delayed variable
 
-## Indexing conventions (for cylindrical history buffer)
-- [time x neuron] index
-  - comes from Morrison et al. 2007 via "Vectorized Algos." paper
-  - consistent with dataframe view 
-  - `np.concatenate([ G.v[:] for G in all_groups ])` returns a row-vector
-- [neuron x time] 
-  - marcel and RTH's solutions both use this
-  - allows current state to be inserted as a column 
-  - consistent with plotting time on x-axis 
+
   
 ---
 ## Advanced features 
@@ -65,6 +68,21 @@
     - see cylindrical array in "Vectorized Algos"
     - see also implementation by RTH: https://brian.discourse.group/t/delay-in-continuous-connections/509/6
 
+  - [ ] **Indexing conventions (for cylindrical history buffer)**
+
+    - [neuron x time] 
+      - Marcel and RTH's solutions both use this
+      - allows current state to be inserted as a column 
+      - also allows memory-efficient access of loading a single time-slice (if the number of time-samples stored is less than the number of groups)
+        - see [row and column order - wiki](https://en.wikipedia.org/wiki/Row-_and_column-major_order)
+      - consistent with plotting time on x-axis 
+      
+    - [time x neuron] index
+      - comes from Morrison et al. 2007 via "Vectorized Algos." paper
+      - consistent with dataframe view 
+      - `np.concatenate([ G.v[:] for G in all_groups ])` returns a row-vector
+
+
   - [ ] C++ implementation
     - [see current SpikeQueue implementation](https://github.com/brian-team/brian2/blob/master/brian2/synapses/cspikequeue.cpp)
     - needs cylindrical array implementation 
@@ -75,6 +93,7 @@
       - https://brian.discourse.group/t/user-defined-functions/271
 ### Storage
   - tension between sparse list-based solution and vectorized indexing / insertion
+    - [Storing a Sparse Matrix - wiki page](https://en.wikipedia.org/w/index.php?title=Sparse_matrix#Storing_a_sparse_matrix)
     - something like matlab's sparse matrix representation could bridge the gap
       - scipy has a 
       - so does PyTorch: [torch.sparse](https://pytorch.org/docs/stable/sparse.html)
