@@ -12,9 +12,24 @@ from ring_buffers import *
 # %load_ext autoreload
 # %autoreload 2
 
+'''
+rename XCORR dataframe!
+- then can send to Matt
+- print other params to title!!
+
+ERROR: NotImplementedError: Multiple "summed variables" target the variable "I_in" in group "neurongroup_2". Use multiple variables in the target group instead.
+
+- stop dash app from executing from notebook
+------
+tau blurs xcorr peaks out to wider lags!
+
+longer sims means easier xcorr decoding 
+'''
+def time_sel_df(df,time_range):
+    return df[(df['time [ms]']>time_range[0]) & (df['time [ms]']<time_range[1])]
 # %%
 start_scope()
-duration = 1000*ms
+duration = 2000*ms
 dt = defaultclock.dt;
 def time2index(t):
     return np.round(t/dt).astype(int)
@@ -26,8 +41,8 @@ N_groups = 5
 N_neurons = 1
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
-tau = .5*10*ms
-sigma = 5
+tau = 0.5*10*ms
+sigma = 1
 
 def ij_to_flat_index(gi, ni, N_high=N_groups, N_low=N_neurons):
     return gi*N_low + ni
@@ -35,20 +50,25 @@ def ij_to_flat_index(gi, ni, N_high=N_groups, N_low=N_neurons):
     # return 
 
 #%%
-base_weight = 3*1 / N_neurons;
-base_delay = tau * 0.5
+base_weight = 2 / N_neurons; #0.001 = null, 1=medium-strong, 3=strong, 0.9 for reciprocal
+base_delay = 20*ms #tau * 0.5
 base_delay_samp = time2index(base_delay)
 
 
 Weights = np.zeros((N_groups,N_groups))
+# Weights[0][1] = base_weight 
 Weights[0][1] = base_weight 
-Weights[1][2] = base_weight
+Weights[1][2] = base_weight 
+Weights[4][3] = base_weight
+# Weights[][4] = base_weight
+
 def is_ij_valid(i,j):
     return Weights[i][j] != 0
 Delays = np.ones((N_groups, N_groups)) * base_delay
 Delays[Weights==0] = 0
-Delays[0][1] = 50*ms
-Delays[1][2] = 40*ms
+# Delays[1][0] = 3.5*base_delay
+# Delays[0][1] = 50*ms
+# Delays[1][2] = 50*ms
 Delays_samp = time2index(Delays)
 
 buffer_len = int(max(np.max(Delays_samp[:])+1, min_buffer_len))
@@ -63,6 +83,7 @@ eqs = '''
 dv/dt = (v0 - v + I_in)/tau + sigma*xi*tau**-0.5 :1
 v0 : 1
 I_in : 1 # input current from other nodes
+sigma : 1
 '''
 
 # simplest gap synapse
@@ -84,7 +105,9 @@ FAKE_THRESHOLD = 'v>999999'
 
 #option 2: store delay in custom attribute
 all_groups = [NeuronGroup(N_neurons, eqs, method='euler') for i in range(N_groups)]
-
+for g in all_groups:
+    g.sigma=sigma
+# all_groups[2].sigma=0
 
 #%%
 group_names = [chr(i+97).upper() for i in range(N_groups)]
@@ -273,14 +296,21 @@ dfhg
 figt = px.line(melt_group_df_voltage(dfhg), x='time [ms]', y='voltage', facet_row='population',color='population')
 figt.update_layout(width=600, height=500)
 figt.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-figt.write_html('gaussian_timeseries.html')
+# figt.write_html('figs/gaussian_timeseries.html')
 figt
 #%%
+do_norm_outputs = True # seems like generally a good idea
+do_sub_auto_corr = False 
+# in some cases, NOT subtracting the auto-corr can clarify things
+    # subtracted peak depends strongly on auto-corr width 
+    # often subtracting the autocorr of the input carves a valley from the center of the xcorr, which is at least distracting 
+do_norm_xcorr = False
+
 X = dfhg.to_numpy()
 X.shape
 # xstd=np.nanstd(X,axis=0)
 # (X/xstd).shape
-do_norm_outputs=True
+
 if do_norm_outputs:
     X = (X-np.nanmean(X,axis=0))/np.nanstd(X,axis=0)
 
@@ -293,81 +323,38 @@ def corr_col(i,j):
     return np.correlate(X[:-1,i], X[:-1,j],'same')
 for i in range(X.shape[1]-1):
     for j in range(X.shape[1]-1):
-        dfx[(group_names[i],group_names[j])] = corr_col(i,j)  - corr_col(i,i)
-        # 2 -corr_col(j,j)/2
-        # - np.correlate(X[:-1,j], X[:-1,j],'same')
+        this_xcorr = corr_col(i,j)  
+        if do_sub_auto_corr or i==j:
+            norm_i = i
+            this_xcorr -= corr_col(norm_i,norm_i)
+        dfx[(group_names[i],group_names[j])] = this_xcorr
 dfx['time [ms]'] = (dfx.index - len(dfx.index)/2)*dt/ms
 
-norm_dfx = dfx
-# norm_dfx=(dfx-dfx.mean())/dfx.std()
-# norm_dfx=dfx/dfx.std()
-# norm_dfx=(dfx-dfx.mean())
 
+if do_norm_xcorr:
+    norm_dfx=(dfx-dfx.mean())/dfx.std()
+    # norm_dfx=dfx/dfx.std()
+    # norm_dfx=(dfx-dfx.mean())
+else:
+    norm_dfx = dfx
+    
 norm_dfx['time [ms]'] = dfx['time [ms]']
+
+time_range = np.array([-1,1])*200
 
 dfx_m = melt_hier_df_voltage(norm_dfx)
 dfx_m
-fig = px.line(dfx_m,x='time [ms]',y='voltage',facet_row='population',color='neuron')
-fig.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]))
-fig.update_layout(width=300,height=500)
-fig.write_html('gaussian_xcorr.html')
-fig
+figx = px.line(time_sel_df(dfx_m,time_range) , x='time [ms]',y='voltage',facet_row='population',color='neuron')
+figx.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]+'→'))
+figx.update_layout(width=300,height=500)
+# figx.update_yaxes(range=[-5000,15000])
+# figx.write_html('figs/gaussian_xcorr.html')
+figx
 #%%
-# https://stackoverflow.com/questions/63459424/how-to-add-multiple-graphs-to-dash-app-on-a-single-browser-page
-import dash
-from dash import dcc
-from dash import html
-# app = dash.Dash(__name__)
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-# https://stackoverflow.com/questions/63459424/how-to-add-multiple-graphs-to-dash-app-on-a-single-browser-page
-
-
-
-def dash_app_from_figs(fig_list, port=8050):
-    n_fig = len(fig_list)
-    col_w = int(round(12/n_fig))
-    
-    import dash
-    from dash import dcc
-    from dash import html
-    # app = dash.Dash(__name__)
-    external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
-    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-    
-    app.layout = html.Div(children=[
-        # All elements from the top of the page
-        html.Div([
-            html.Div([
-                html.H1(children='Cross-correlations'),
-
-                html.Div(children='''
-                    From gaussian network.
-                '''),
-                
-                
-                for i,fig in enumerate(fig_list):
-                    html.Div([dcc.Graph( id=f'graph{i}', figure=fig)], className='five columns'), 
-                # html.Div([dcc.Graph( id='graph2', figure=fig)], className='five columns'), 
-            ], className='row'),
-        ], className='row'),
-    ])
-
-    try:
-        if __name__ == '__main__':
-            app.run_server(debug=True,port=8050)
-    except err:
-        print(err)
-
-dash_app_from_figs([figt,fig])
-
-'''
-if port is in use, try:
-> sudo lsof -i:8050                                                                                                                                                                                              🐍:(neuroenv) 
-then:
-> kill (id of what came up)
-https://stackoverflow.com/questions/19071512/socket-error-errno-48-address-already-in-use
-'''
+      
+#%%
+import dash_functions as my_dash
+my_dash.dash_app_from_figs([figt,figx], col_widths=None, title='Cross-correlations',subtitle='from a delayed gaussian network')
 
 #%%
 # '''
@@ -376,7 +363,7 @@ https://stackoverflow.com/questions/19071512/socket-error-errno-48-address-alrea
 # -stack multple weight values
 # '''
 
-# fig.write_html('gaussian_xcorr.html')
+# fig.write_html('figs/gaussian_xcorr.html')
 #%%
 # dfhg.mean()
 # mi2 = pd.MultiIndex.from_product( [list(mi), list(mi)])
