@@ -4,9 +4,12 @@ import matplotlib.pyplot as plt
 
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 
 from brian_to_dataframe import *
 from ring_buffers import *
+from circuit_helpers import *
 
 %matplotlib inline
 %load_ext autoreload
@@ -75,6 +78,12 @@ buffer_len = int(max(np.max(Delays_samp[:])+1, min_buffer_len))
 # history_buffer = DQRingBuffer(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
 history_buffer = RingBuffer_2D(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
 
+
+
+
+
+
+
 #%%
 
 #linear gaussian (autoregressive) equations
@@ -107,6 +116,13 @@ all_groups = [NeuronGroup(N_neurons, eqs, method='euler') for i in range(N_group
 for g in all_groups:
     g.sigma=base_sigma
 # all_groups[2].sigma=0
+
+#%%
+
+circuit_str= adj_to_str(Weights, line_joiner =', ', node_name_f=lambda i: group_names[i])
+print(circuit_str)
+param_str = f'w={base_weight} sigma={base_sigma} tau={tau/ms:.1f}ms delay={base_delay/ms:.1f}ms'
+param_str
 
 #%%
 group_names = [chr(i+97).upper() for i in range(N_groups)]
@@ -297,79 +313,160 @@ figt.for_each_annotation(lambda a: a.update(x=-.08, textangle=-90) )
 figt.update_layout(showlegend=False)
 figt
 
+
+
+
+#%%
+#%%
+
+
+#%%
+#%%
+
+zscore_fn = lambda x: (x-np.nanmean(x,axis=0))/np.nanstd(x,axis=0)
+# zscore_fn = lambda x: (x-np.nanmin(x,axis=0))/np.ptp(x,axis=0)
+
+def zscore_df_cols(df, cols_to_norm):
+    df[cols_to_norm] = df[cols_to_norm].apply(zscore_fn)
+    return df
+def zscore_df_cols_except(df, cols_to_exclude):
+    # df.loc[:,df.columns!=cols_to_exclude] = df.loc[:,df.columns!=cols_to_exclude].apply(zscore_fn)
+    cols_to_norm = df.drop(cols_to_exclude,axis=1).columns
+    return zscore_df_cols(df,cols_to_norm)
+    
+def cross_function_df(df, col_names, func_ij):
+    '''
+    applies a function across each of the pairs of columns of a DataFrame 
+    - e.g. cross-correlation 
+    '''
+    N = len(col_names)
+    
+    #initialize xcorr dataframe from product of group names
+    dfx = pd.DataFrame(columns=pd.MultiIndex.from_product( [col_names, col_names]).set_names(['from','to']))
+
+    for i in range(N):
+        for j in range(N):
+            this_output = func_ij(df, i, j)
+            dfx[(col_names[i],col_names[j])] = this_output
+            
+    dfx['lag [ms]'] = df['time [ms]'] - df['time [ms]'].mean()
+    return dfx
+    
+    
+def corr_df(df,i,j):
+    '''
+    computes the cross correlation between two columns of a dataframe 
+    (normalized by the number of samples)
+    NOTE: this method assumes (and doesn't check) that all samples in the frame are from a uniform spacing in time
+    '''
+    return np.correlate(df.iloc[:-1,i], df.iloc[:-1,j], 'same')/len(df.iloc[:-1,i])
+    # 
+    
+    
+def xcorr_df_func(df,i,j, do_sub_auto_corr=False):
+    xc= corr_df(df,i,j)
+    # if do_sub_auto_corr:
+    if i==j or do_sub_auto_corr:
+        xc -= corr_df(df,i,i)   
+    return xc
 #%%
 do_norm_outputs = True # seems like generally a good idea
 do_sub_auto_corr = False 
 # in some cases, NOT subtracting the auto-corr can clarify things
     # subtracted peak depends strongly on auto-corr width 
     # often subtracting the autocorr of the input carves a valley from the center of the xcorr, which is at least distracting 
-do_norm_xcorr = False
+do_norm_xcorr = False #seems 
 
-
-
-X = df_avg.to_numpy()
-X.shape
-# xstd=np.nanstd(X,axis=0)
-# (X/xstd).shape
+df_avg_norm = df_avg.copy()
 
 if do_norm_outputs:
-    X = (X-np.nanmean(X,axis=0))/np.nanstd(X,axis=0)
+    df_avg_norm = zscore_df_cols(df_avg_norm, group_names)
 
-# assumes time is last column, timeseries is contiguous
-# XCORRS = {}
+# create "closure" around our choice of whether to subtract autocorrelation
+xcorr_df_func_norm = lambda df,i,j: xcorr_df_func(df, i, j, do_sub_auto_corr)
+dfx = cross_function_df(df_avg_norm, group_names, xcorr_df_func_norm)
 
-' initialize xcorr dataframe from product of group names '
-dfx = pd.DataFrame(columns=pd.MultiIndex.from_product( [group_names, group_names]).set_names(['from','to']))
-dfx.head()
-
-def corr_col(i,j):
-    return np.correlate(X[:-1,i], X[:-1,j],'same')
-    
-for i in range(X.shape[1]-1):
-    for j in range(X.shape[1]-1):
-        this_xcorr = corr_col(i,j)  
-        if do_sub_auto_corr or i==j:
-            norm_i = i
-            this_xcorr -= corr_col(norm_i,norm_i)
-        this_xcorr /= len(this_xcorr)
-            
-        # xcorr_df(df[i], df[j]
-        dfx[(group_names[i],group_names[j])] = this_xcorr
-        
-#NOTE: this should be specified in terms of df_avg.time!        
-dfx['lag [ms]'] = (dfx.index - len(dfx.index)/2)*dt/ms
+lag_key = 'lag [ms]'
+nested_lag_key = ('lag [ms]','')
 
 
+dfx.drop([nested_lag_key],axis=1)
 if do_norm_xcorr:
-    norm_dfx=(dfx-dfx.mean())/dfx.std()
-    # norm_dfx=dfx/dfx.std()
-    # norm_dfx=(dfx-dfx.mean())
-else:
-    norm_dfx = dfx
-    
+    dfx = zscore_df_cols_except(dfx, [nested_lag_key])
 
-time_range = np.array([-1,1])*200
 
-dfx_m = melt_hier_df_timeseries(norm_dfx,'from','to','xcorr','lag [ms]')
-dfx_m['to'] = dfx_m['to'].apply(lambda A: 'to '+A)
+time_range = np.array([-1,1])*250
+dfx_m = melt_hier_df_timeseries(dfx,'from','to','xcorr',lag_key)
+# dfx_m['to'] = dfx_m['to'].apply(lambda A: 'to '+A)
 
-figx = px.line(time_selection_df(dfx_m,time_range, 'lag [ms]') , x='lag [ms]',y='xcorr',
+figx = px.line(time_selection_df(dfx_m, time_range, lag_key) , x=lag_key, y='xcorr',
     facet_row='from',color='to')
     
 # figx.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]+'→'))
 figx.for_each_annotation(lambda a: a.update(text='from '+a.text.split("=")[-1]))
 # figx.for_each_trace(lambda a: a.update(text=a.text.split("=")[-1]+'→'))
 
-figx.update_layout(width=350,height=500)
+figx.update_layout(width=350, height=500)
 figx.layout.legend.x = 1.15
 
 # figx.update_yaxes(range=[-5000,15000])
 # figx.write_html('figs/gaussian_xcorr.html')
 figx
 #%%
-      
+
+fig = make_subplots(N_groups,2, column_widths=[0.8, 0.2],
+    shared_xaxes=True,shared_yaxes='columns', 
+    y_title='voltages',
+    row_titles=[g+'→' for g in group_names], column_titles=['outputs','xcorr'])
+fig.update_layout(width=850,height=500)
+
+
+q_colors = px.colors.qualitative.Plotly   
+def go_line(df,x,y,color,legendgroup):
+    return go.Scatter(x=df[x],y=df[y],mode='lines',line = dict(color=color),legendgroup=legendgroup)
+
+time_key = 'time [ms]'
+df_avg
+df_m = melt_group_df_timeseries(df_avg)
+
+#see https://plotly.com/python/legend/#grouped-legend-items for linking legend toggling across groups
+
+
+for i in range(N_groups):
+    ip = i+1
+    df_i = df_m[df_m['population']==group_names[i]]
+    gl = go_line(df_i,x=time_key, y='voltage',color=q_colors[i],legendgroup=f'group{i}')
+    gl.name='→'+group_names[i]
+    if i==0:
+        gl.legendgrouptitle.text="First Group Title"
+
+    fig.add_trace(gl,row=ip,col=1)
+    
+    for j in range(N_groups):
+        
+        ij_mask = (dfx_m['from']==group_names[i]) & (dfx_m['to']==group_names[j])
+        # time_mask = 
+        df_ij = time_selection_df(dfx_m[ij_mask], time_range, lag_key)
+        gl = go_line(df_ij,x=lag_key, y='xcorr',color=q_colors[j],legendgroup=f'group{j}')
+        gl.showlegend=False
+        gl.name=f'{group_names[i]}→{group_names[j]}'
+        fig.add_trace(gl,row=ip,col=2)
+        
+fig.update_xaxes(title_text=time_key, row=ip, col=1)
+fig.update_xaxes(title_text=lag_key, row=ip, col=2)
+
+fig.update_layout(
+    title=go.layout.Title(
+        text = f'Cross-correlations from a gaussian network: {circuit_str} <br><sup>{param_str}</sup>',
+        xref="paper",
+        x=0
+    ))
+fig.write_html('figs/gaussian_combo.html')
+fig
+
+#%%      
 #%%
-import dash_functions as my_dash
+# import dash_functions as my_dash
 # my_dash.dash_app_from_figs([figt,figx], col_widths=None, title='Cross-correlations',subtitle='from a delayed gaussian network')
 
 #%%
