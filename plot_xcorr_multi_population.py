@@ -6,10 +6,13 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+from plotly_functions import *
 
 from brian_to_dataframe import *
 from ring_buffers import *
 from circuit_helpers import *
+from dataframe_preprocessing_functions import *
+
 
 %matplotlib inline
 %load_ext autoreload
@@ -39,17 +42,20 @@ def time2index(t):
     
 min_buffer_len = time2index(0*ms)
 
-N_groups = 5 
+N_groups = 5
 N_neurons = 1
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
 tau = 0.5*10*ms
 base_sigma = 1
 
-def ij_to_flat_index(gi, ni, N_high=N_groups, N_low=N_neurons):
-    return gi*N_low + ni
-# def flat_index_to_ij(fi, N_high=N_groups, N_low=N_neurons):
-    # return 
+def ij_to_flat_index(high_idx, low_idx, N_high=N_groups, N_low=N_neurons):
+    return high_idx*N_low + low_idx
+    
+def flat_index_to_ij(fi, N_high=N_groups, N_low=N_neurons):
+    low_idx = fi%N_low
+    high_idx = floor(fi/N_low)
+    return (high_idx, low_idx)
 
 #%%
 base_weight = 2 / N_neurons; #0.001 = null, 1=medium-strong, 3=strong, 0.9 for reciprocal
@@ -57,6 +63,9 @@ base_delay = 20*ms #tau * 0.5
 base_delay_samp = time2index(base_delay)
 
 
+'''
+This section specifies connectivity
+'''
 Weights = np.zeros((N_groups,N_groups))
 # Weights[0][1] = base_weight 
 Weights[0][1] = base_weight 
@@ -77,11 +86,6 @@ buffer_len = int(max(np.max(Delays_samp[:])+1, min_buffer_len))
 
 # history_buffer = DQRingBuffer(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
 history_buffer = RingBuffer_2D(buffer_len = buffer_len, n_channels = N_total, initial_val=0)
-
-
-
-
-
 
 
 #%%
@@ -118,14 +122,20 @@ for g in all_groups:
 # all_groups[2].sigma=0
 
 #%%
+# Annotate parameters
+group_names = [chr(i+97).upper() for i in range(N_groups)]
+
+peak_window = [-(base_delay+tau)*3/ms, 0]
 
 circuit_str= adj_to_str(Weights, line_joiner =', ', node_name_f=lambda i: group_names[i])
-print(circuit_str)
 param_str = f'w={base_weight} sigma={base_sigma} tau={tau/ms:.1f}ms delay={base_delay/ms:.1f}ms'
-param_str
+
+def gaussian_title(circuit_str, param_str):
+    return f'Cross-correlations from a gaussian network: {circuit_str} <br><sup>{param_str}</sup>'
+
+fig_title = gaussian_title(circuit_str, param_str)
 
 #%%
-group_names = [chr(i+97).upper() for i in range(N_groups)]
 
 # N_nodes = len(all_groups)
 
@@ -197,6 +207,7 @@ net = Network()
 net.add(all_groups, all_synapses, all_monitors)
 net.add(record_v_to_buffer)
 # %%
+
 t0 = time.time()
 net.run(duration)
 t1 = time.time()
@@ -205,25 +216,10 @@ type(history_buffer)
 print(f'{duration} second simulation took\n {run_walltime:.3f} seconds to simulate\n\
  with {type(history_buffer)},\n\
  buffer len: {buffer_len}, {N_total} neurons')
-# %%
+# %% markdown
+## Simulation notes:
 
-
-# #%% markdown
-# 5x10 neurons, 500 buffer, DQ Buffer:
-# 
-# 1.5 sec without writing  
-# -4 seconds writing 0 to v_delayed  
-# 2-5 seconds with writting to v_delayed  (from Numpy buffer)
-# 6 seconds with writting to v_delayed  (from DQ buffer, with get_delay then indexing by neuron)
-# 27 seconds with writting to v_delayed  (from DQ buffer, with clunky custom 2D indexing)
-# 
-# 
-# 
-# reading out of history_buffer is the bottleneck !
-
-
-
-#%%
+#%% code
 #add simple offset for plotting
 np_history_buffer = history_buffer.to_np().T
 np_history_buffer.shape 
@@ -248,128 +244,22 @@ rename_groups = dict(zip(group_names, history_group_names))
 df_m = melt_hier_df_timeseries(null_last_row(df))
 dfhist_m = melt_hier_df_timeseries(null_last_row(dfhist))
 
+# add extra annotation to color by nested variables
 df_m['compare population'] = df_m['population']
 dfhist_m['compare population'] = dfhist_m['population'] 
 dfhist_m.replace({'compare population': rename_groups}, inplace=True)
 
-nudge_y = 0
-dfhist_m['voltage'] = dfhist_m['voltage'] + nudge_y
-#%%
+# nudge_y = 0
+# dfhist_m['voltage'] = dfhist_m['voltage'] + nudge_y
 
-
-#%%
-
-
-fig = px.line(df_m, x='time [ms]', y='voltage', color='population')
-fig.update_layout(width=500, height=300)
-fig
-
-#%%
-'plots each channel as a row'
-if N_neurons > 1:
-    # fig = px.line(df_m,x='time [ms]',y='voltage',facet_row='flat_hier_idx',color='population')
-    # fig.update_layout(width=500, height=80*N_nodes*N_neurons)
-    # fig.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
-    ' collapses into a row per population '
-    fig = px.line(df_m, x='time [ms]', y='voltage', facet_row='population', color='neuron')
-    fig.update_layout(width=500, height=400)
-    fig.update_traces(line=dict(width=1))
-    fig
 #%% 
 
-
-#%%
-# figh = px.line(pd.concat([df_m, dfhist_m]), x='time [ms]', y='voltage', facet_row='flat_hier_idx',color='compare population',
-#     title=f'last {buffer_len} samples of history saved into buffer')
-# figh.update_layout(width=500, height=80*N_nodes*N_neurons)
-# figh.for_each_annotation(lambda a: a.update(text=a.text.split("_")[-1]))
-df_m
-figh = px.line(pd.concat([df_m, dfhist_m ] ), x='time [ms]', y='voltage', facet_row='population',color='compare population',
-    title=f'last {buffer_len} samples of history saved into buffer')
-# figh.update_traces(marker=dict(size=1,opacity=.9))    
-figh.update_layout(width=500, height=150*N_groups)
-
-# figh.update_xaxes(range=[0,duration/second])
-
-figh.update_traces(line=dict(width=1))
-figh
-#%%
-
 # Construct cross-correlation matrix (as dataframe) from time-series data-frames
-df.head(2)
 # first average across neurons
 df_avg = df.groupby(axis='columns', level=0).mean()
 df_avg
-#%%
-figt = px.line(melt_group_df_timeseries(df_avg), x='time [ms]', y='voltage', 
-    facet_row='population',color='population',labels={'population':'pop'})
-figt.update_layout(width=600, height=500)
-# figt.write_html('figs/gaussian_timeseries.html')
-figt.for_each_annotation(lambda a: a.update(text=a.text.split('=')[-1], ))
-figt.for_each_annotation(lambda a: a.update(x=-.08, textangle=-90) )
 
-# figt.for_each_annotation(lambda a: print(a) )
-
-figt.update_layout(showlegend=False)
-figt
-
-
-
-
-#%%
-#%%
-
-
-#%%
-#%%
-
-zscore_fn = lambda x: (x-np.nanmean(x,axis=0))/np.nanstd(x,axis=0)
-# zscore_fn = lambda x: (x-np.nanmin(x,axis=0))/np.ptp(x,axis=0)
-
-def zscore_df_cols(df, cols_to_norm):
-    df[cols_to_norm] = df[cols_to_norm].apply(zscore_fn)
-    return df
-def zscore_df_cols_except(df, cols_to_exclude):
-    # df.loc[:,df.columns!=cols_to_exclude] = df.loc[:,df.columns!=cols_to_exclude].apply(zscore_fn)
-    cols_to_norm = df.drop(cols_to_exclude,axis=1).columns
-    return zscore_df_cols(df,cols_to_norm)
-    
-def cross_function_df(df, col_names, func_ij):
-    '''
-    applies a function across each of the pairs of columns of a DataFrame 
-    - e.g. cross-correlation 
-    '''
-    N = len(col_names)
-    
-    #initialize xcorr dataframe from product of group names
-    dfx = pd.DataFrame(columns=pd.MultiIndex.from_product( [col_names, col_names]).set_names(['from','to']))
-
-    for i in range(N):
-        for j in range(N):
-            this_output = func_ij(df, i, j)
-            dfx[(col_names[i],col_names[j])] = this_output
-            
-    dfx['lag [ms]'] = df['time [ms]'] - df['time [ms]'].mean()
-    return dfx
-    
-    
-def corr_df(df,i,j):
-    '''
-    computes the cross correlation between two columns of a dataframe 
-    (normalized by the number of samples)
-    NOTE: this method assumes (and doesn't check) that all samples in the frame are from a uniform spacing in time
-    '''
-    return np.correlate(df.iloc[:-1,i], df.iloc[:-1,j], 'same')/len(df.iloc[:-1,i])
-    # 
-    
-    
-def xcorr_df_func(df,i,j, do_sub_auto_corr=False):
-    xc= corr_df(df,i,j)
-    # if do_sub_auto_corr:
-    if i==j or do_sub_auto_corr:
-        xc -= corr_df(df,i,i)   
-    return xc
-#%%
+#Options for cross-correlation analysis
 do_norm_outputs = True # seems like generally a good idea
 do_sub_auto_corr = False 
 # in some cases, NOT subtracting the auto-corr can clarify things
@@ -389,97 +279,19 @@ dfx = cross_function_df(df_avg_norm, group_names, xcorr_df_func_norm)
 lag_key = 'lag [ms]'
 nested_lag_key = ('lag [ms]','')
 
-
-dfx.drop([nested_lag_key],axis=1)
 if do_norm_xcorr:
     dfx = zscore_df_cols_except(dfx, [nested_lag_key])
 
 
-time_range = np.array([-1,1])*250
-dfx_m = melt_hier_df_timeseries(dfx,'from','to','xcorr',lag_key)
-# dfx_m['to'] = dfx_m['to'].apply(lambda A: 'to '+A)
-
-figx = px.line(time_selection_df(dfx_m, time_range, lag_key) , x=lag_key, y='xcorr',
-    facet_row='from',color='to')
-    
-# figx.for_each_annotation(lambda a: a.update(text=a.text.split("=")[-1]+'→'))
-figx.for_each_annotation(lambda a: a.update(text='from '+a.text.split("=")[-1]))
-# figx.for_each_trace(lambda a: a.update(text=a.text.split("=")[-1]+'→'))
-
-figx.update_layout(width=350, height=500)
-figx.layout.legend.x = 1.15
-
-# figx.update_yaxes(range=[-5000,15000])
-# figx.write_html('figs/gaussian_xcorr.html')
-figx
-#%%
-
-fig = make_subplots(N_groups,2, column_widths=[0.8, 0.2],
-    shared_xaxes=True,shared_yaxes='columns', 
-    y_title='voltages',
-    row_titles=[g+'→' for g in group_names], column_titles=['outputs','xcorr'])
-fig.update_layout(width=850,height=500)
-
-
-q_colors = px.colors.qualitative.Plotly   
-def go_line(df,x,y,color,legendgroup):
-    return go.Scatter(x=df[x],y=df[y],mode='lines',line = dict(color=color),legendgroup=legendgroup)
-
-time_key = 'time [ms]'
-df_avg
-df_m = melt_group_df_timeseries(df_avg)
-
-#see https://plotly.com/python/legend/#grouped-legend-items for linking legend toggling across groups
-
-
-for i in range(N_groups):
-    ip = i+1
-    df_i = df_m[df_m['population']==group_names[i]]
-    gl = go_line(df_i,x=time_key, y='voltage',color=q_colors[i],legendgroup=f'group{i}')
-    gl.name='→'+group_names[i]
-    if i==0:
-        gl.legendgrouptitle.text="First Group Title"
-
-    fig.add_trace(gl,row=ip,col=1)
-    
-    for j in range(N_groups):
-        
-        ij_mask = (dfx_m['from']==group_names[i]) & (dfx_m['to']==group_names[j])
-        # time_mask = 
-        df_ij = time_selection_df(dfx_m[ij_mask], time_range, lag_key)
-        gl = go_line(df_ij,x=lag_key, y='xcorr',color=q_colors[j],legendgroup=f'group{j}')
-        gl.showlegend=False
-        gl.name=f'{group_names[i]}→{group_names[j]}'
-        fig.add_trace(gl,row=ip,col=2)
-        
-fig.update_xaxes(title_text=time_key, row=ip, col=1)
-fig.update_xaxes(title_text=lag_key, row=ip, col=2)
-
-fig.update_layout(
-    title=go.layout.Title(
-        text = f'Cross-correlations from a gaussian network: {circuit_str} <br><sup>{param_str}</sup>',
-        xref="paper",
-        x=0
-    ))
-fig.write_html('figs/gaussian_combo.html')
-fig
-
-#%%      
-#%%
-# import dash_functions as my_dash
-# my_dash.dash_app_from_figs([figt,figx], col_widths=None, title='Cross-correlations',subtitle='from a delayed gaussian network')
 
 #%%
-# '''
-# -color by time (whether in or out of candidate window)
-# -add annotation rectangle
-# -stack multple weight values
-# '''
 
-# fig.write_html('figs/gaussian_xcorr.html')
-#%%
-# df_avg.mean()
-# mi2 = pd.MultiIndex.from_product( [list(mi), list(mi)])
+figtx = df_plot_xcorr(df_avg, dfx, group_names, xcorr_plot_window=[-200,200],highlight_window=peak_window,
+    fig_title=fig_title, html_file=None)
+    # 'figs/gaussian_combo.html')
+figtx.update_xaxes(dtick=50, col=2)        
+
+figtx
 
 
 

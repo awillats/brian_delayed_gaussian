@@ -4,32 +4,11 @@ Open issues:
     - it shouldn't have to
 '''
 #%%
-
 import pandas as pd
 
-
 #%%
-# Additional helper functions
-def null_last_row(df):
-    '''
-    called to break up transitions between series for plotly based on melted dataframe
-    '''
-    #assumes time column is on the far right side
-    df.iloc[-1,:-1]=None
-    return df
 
-def time_selection_df(df,time_range, time_name = 'time [ms]'):
-    return df[(df[time_name]>time_range[0]) & (df[time_name]<time_range[1])]
-
-def compare_df(df1, df2, tail_amount):
-    '''
-    return differences in the last <tail_amount> samples of a dataframe 
-    '''
-    df1_tail = df1.tail(tail_amount).reset_index(drop=True)
-    df2_tail = df2.tail(tail_amount).reset_index(drop=True)
     
-    return df1_tail.compare(df2_tail)
-
 #%%
 # Brian -> Pandas conversion functions
 def volt_monitors_to_hier_df(all_monitors, group_names, neuron_names):
