@@ -2,6 +2,7 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
+import plotly.colors
 
 import dash
 from dash import dcc
@@ -9,6 +10,11 @@ from dash import html
 
 from brian_to_dataframe import * 
 from dataframe_preprocessing_functions import *
+
+import colorsys
+
+def hex_to_hsv(hexstr):
+    plotly.colors.hex_to_rgb()
 
 def hex_to_rgba(h, alpha):
     '''
@@ -19,11 +25,58 @@ def hex_to_rgba(h, alpha):
     return tuple([int(h.lstrip('#')[i:i+2], 16) for i in (0, 2, 4)] + [alpha])
     
 def fade_color(hex_color, alpha):
+    # see also plotly.colors.label_rgb
     return 'rgba'+str(hex_to_rgba(h=hex_color,alpha=alpha))
     
 def go_line(df,x,y,color,legendgroup):
     return go.Scatter(x=df[x],y=df[y],mode='lines',line = dict(color=color),legendgroup=legendgroup)
 
+def constrain(v, minv=0,maxv=1):
+    return np.max([np.min([v,maxv]),minv])
+    
+def gen_nested_color_scheme(color_scheme, N, saturation_speed=5, min_saturation= .2, opacity_speed=2, min_opacity=.2, faded_color=None):
+    '''
+    takes a (discrete) color scheme and nests N (faded) variations on the color
+    - especially useful for visualizing data with nested indices 
+    - fades color to gray (and lowers opacity)
+        - roughly N / saturation_speed traces will have high visibility, the rest will fade to gray
+        - ditto for opacity
+        - speed greater than one will saturate to white/gray 
+        - speed less than one will keep color close to fully saturated
+    
+    expects color_scheme to be a list of hexidecimal strings
+    returns rgba(R,G,B,A) formatted strings
+    '''
+    
+    if isinstance(color_scheme,int):
+        color_scheme = px.colors.qualitative.Plotly[0:color_scheme]
+    
+    WHITE = (255,255,255)
+    GRAY = tuple([180]*3)
+    if faded_color is None:
+        faded_color = GRAY
+    
+    nested_colors=[]
+    for c in color_scheme:
+        for i in range(N):
+            perc = i/(N-1)
+            iperc = 1-perc
+            
+            # used to interpolate between color and faded color
+            color_prop = constrain(1-iperc*saturation_speed, min_saturation, 1)
+            
+            #interpolate colors
+            new_color = plotly.colors.find_intermediate_color(faded_color, plotly.colors.hex_to_rgb(c), color_prop)
+            
+            #interpolate alpha
+            alpha = constrain(1-iperc*opacity_speed, min_opacity,1)
+            alpha = round(alpha, 1)
+            
+            #append alpha to rgb tuple, convert to string
+            new_color = 'rgba'+str(new_color+tuple([alpha]))
+            nested_colors.append(new_color)
+    return nested_colors
+    
 # %% markdown
 # ARCHIVE:
 
@@ -72,7 +125,7 @@ figx
 # %%
 LAG_KEY = 'lag [ms]'
 TIME_KEY = 'time [ms]'
-def df_plot_xcorr(df, dfx, group_names, highlight_window=None, fig_title=None, html_file=None, xcorr_plot_window=[-250,250]):
+def df_plot_timeseries_and_xcorr(df, dfx, group_names, highlight_window=None, fig_title=None, html_file=None, xcorr_plot_window=[-250,250]):
     #setup dataframe
     df_m = melt_group_df_timeseries(df)
     dfx_m = melt_hier_df_timeseries(dfx,'from','to','xcorr',LAG_KEY)

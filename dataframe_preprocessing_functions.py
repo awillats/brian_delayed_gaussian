@@ -70,3 +70,25 @@ def xcorr_df_func(df,i,j, do_sub_auto_corr=False):
     if i==j or do_sub_auto_corr:
         xc -= corr_df(df,i,i)   
     return xc
+#%%    
+def extract_xcorr_from_df(df, do_norm_outputs=True, do_sub_auto_corr=False, do_norm_xcorr=False):
+    '''
+    - Use> df.groupby(axis='columns', level=0).mean()
+    - to average across lower level (i.e. across neurons)
+    '''
+    group_names = list(df.drop('time [ms]',axis=1).columns)
+    df_avg_norm = df.copy()
+
+    if do_norm_outputs:
+        df_avg_norm = zscore_df_cols(df_avg_norm, group_names)
+
+    # create "closure" around our choice of whether to subtract autocorrelation
+    xcorr_df_func_norm = lambda df,i,j: xcorr_df_func(df, i, j, do_sub_auto_corr)
+    dfx = cross_function_df(df_avg_norm, group_names, xcorr_df_func_norm)
+
+    lag_key = 'lag [ms]'
+    nested_lag_key = ('lag [ms]','')
+
+    if do_norm_xcorr:
+        dfx = zscore_df_cols_except(dfx, [nested_lag_key])
+    return dfx   

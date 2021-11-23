@@ -8,6 +8,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from plotly_functions import *
 
+import plotly.express as px
+import plotly.colors
+
 from brian_to_dataframe import *
 from ring_buffers import *
 from circuit_helpers import *
@@ -43,10 +46,10 @@ def time2index(t):
 min_buffer_len = time2index(0*ms)
 
 N_groups = 5
-N_neurons = 1
+N_neurons = 10
 N_total = N_groups*N_neurons
 neuron_names = range(N_neurons)
-tau = 0.5*10*ms
+tau = 10*ms
 base_sigma = 1
 
 def ij_to_flat_index(high_idx, low_idx, N_high=N_groups, N_low=N_neurons):
@@ -128,13 +131,13 @@ group_names = [chr(i+97).upper() for i in range(N_groups)]
 peak_window = [-(base_delay+tau)*3/ms, 0]
 
 circuit_str= adj_to_str(Weights, line_joiner =', ', node_name_f=lambda i: group_names[i])
-param_str = f'w={base_weight} sigma={base_sigma} tau={tau/ms:.1f}ms delay={base_delay/ms:.1f}ms'
+param_str = f'w={base_weight} sigma={base_sigma} tau={tau/ms:.1f}ms delay={base_delay/ms:.1f}ms {N_neurons} neurons per pop.'
 
 def gaussian_title(circuit_str, param_str):
     return f'Cross-correlations from a gaussian network: {circuit_str} <br><sup>{param_str}</sup>'
 
 fig_title = gaussian_title(circuit_str, param_str)
-
+nested_colors = gen_nested_color_scheme(N_groups, N_neurons)
 #%%
 
 # N_nodes = len(all_groups)
@@ -252,13 +255,60 @@ dfhist_m.replace({'compare population': rename_groups}, inplace=True)
 # nudge_y = 0
 # dfhist_m['voltage'] = dfhist_m['voltage'] + nudge_y
 
-#%% 
+#%%
 
+df_m
+
+
+# constrain(2)
+# WHITE = (255,255,255)
+# GRAY = tuple([180]*3)
+# # GRAY = (100,100,100)
+# 
+# q_colors_fade=[]
+# for c in q_colors:
+#     for i in range(N_neurons):
+#         perc=i/(N_neurons-1)
+#         iperc = 1-perc
+#         # print(perc)
+#         color_speed = 10
+#         min_saturation = .2
+#         opacity_speed = 3
+#         min_opacity = .1
+# 
+#         # greater than one will saturate to white/gray 
+#         # less than one will keep color close to fully saturated
+# 
+#         color_prop = constrain(1-iperc*color_speed, min_saturation, 1)
+# 
+#         alpha = constrain(1-iperc*opacity_speed, min_opacity,1)
+#         alpha = round(alpha, 1)
+# 
+#         plotly.colors.hex_to_rgb(c)
+#         new_color = plotly.colors.find_intermediate_color(GRAY, plotly.colors.hex_to_rgb(c), color_prop)
+# 
+#         new_color = 'rgba'+str(new_color+tuple([alpha]))
+#         q_colors_fade.append(new_color)
+#%%
+fig = []
+fig = px.line(df_m, x='time [ms]', y='voltage', facet_row='population', 
+    color='flat_hier_idx', color_discrete_sequence=nested_colors)
+fig.update_layout(width=800, height=500)
+fig.update_traces(line=dict(width=1))
+fig.update_layout(showlegend=False)
+# fig.write_image("figs/nested_color.png",scale=2) #hangs?
+# scope._shutdown_kaleido()
+# see issue: https://github.com/plotly/Kaleido/issues/42
+# fig.write_image("figs/nested_color_.svg",scale=2)
+fig 
+#%%
 # Construct cross-correlation matrix (as dataframe) from time-series data-frames
 # first average across neurons
 df_avg = df.groupby(axis='columns', level=0).mean()
 df_avg
 
+ 
+    
 #Options for cross-correlation analysis
 do_norm_outputs = True # seems like generally a good idea
 do_sub_auto_corr = False 
@@ -267,31 +317,22 @@ do_sub_auto_corr = False
     # often subtracting the autocorr of the input carves a valley from the center of the xcorr, which is at least distracting 
 do_norm_xcorr = False #seems 
 
-df_avg_norm = df_avg.copy()
-
-if do_norm_outputs:
-    df_avg_norm = zscore_df_cols(df_avg_norm, group_names)
-
-# create "closure" around our choice of whether to subtract autocorrelation
-xcorr_df_func_norm = lambda df,i,j: xcorr_df_func(df, i, j, do_sub_auto_corr)
-dfx = cross_function_df(df_avg_norm, group_names, xcorr_df_func_norm)
-
-lag_key = 'lag [ms]'
-nested_lag_key = ('lag [ms]','')
-
-if do_norm_xcorr:
-    dfx = zscore_df_cols_except(dfx, [nested_lag_key])
-
-
+dfx = extract_xcorr_from_df(df_avg, do_norm_outputs, do_sub_auto_corr, do_norm_xcorr)
 
 #%%
 
-figtx = df_plot_xcorr(df_avg, dfx, group_names, xcorr_plot_window=[-200,200],highlight_window=peak_window,
+figtx = df_plot_timeseries_and_xcorr(df_avg, dfx, group_names, xcorr_plot_window=[-250,250],highlight_window=peak_window,
     fig_title=fig_title, html_file=None)
     # 'figs/gaussian_combo.html')
-figtx.update_xaxes(dtick=50, col=2)        
-
 figtx
+#%% markdown 
+peak @ (delay + tau/2) * n_jumps
+
+extent = 7-10 *tau
+
+50 - 50 / 5ms
+80-110 / 10ms
+220 / 30ms
 
 
 
