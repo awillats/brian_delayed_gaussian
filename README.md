@@ -10,23 +10,25 @@
 
 ---
 # Adam's current development priorities 
-      
+
+- [ ] cleanup setting values for sigma
+  - set from array?
+  - record this in param_str
+    
 - [ ] debug multiple input synapses to same current
-- [ ] add nicer cross-correlation annotation
+
+- [ ] add easy interchange between gaussian and spiking LIF
 
 - [~] partition plotting-related and cross-correlation code from delay-buffer-related code 
   - [ ] update script directory
   - [ ] perhaps have separate branches?
-
-- [ ] cleanup setting values for sigma
-  - "sigma" is an internal variable of group "neurongroup_1", but also exists in the run namespace with the value 1. The internal variable will be used.
   
-- [ ] clean up indexing convention
+- [ ] clean up indexing convention 
+  - (excess transposes in ring_buffers)
 
 - [ ] implement, demonstrate "rolling index" 
 ---
 
-  
 # Components of a solution
 1. Extract current state of network (ideally as a column) 
 1. store current value in history buffer
@@ -35,8 +37,6 @@
     - using [`network_operation` [docs]](https://brian2.readthedocs.io/en/stable/reference/brian2.core.operations.network_operation.html) or [`run_regularly` [docs]](https://brian2.readthedocs.io/en/stable/reference/brian2.core.operations.network_operation.html)
 3. access & apply influence of delayed variable
 
-
-  
 ---
 ## Advanced features 
 - [x] generalize beyond two populations 
@@ -191,6 +191,7 @@
   - `class RingBuffer_2D`
     - 2D, using numpy
   - has "if __name__ == __main__" to test buffers
+  
 - `brian_to_dataframe`
   - `null_last_row()`
     - niche utility function 
@@ -201,6 +202,13 @@
     - appends time column
   - `expand_volt_monitor_to_df_columns()`
     - makes non-nested dataframe, embedding hierarchy in column names instead
+  
+- `dataframe_preprocessing_functions`
+  - functions for normalizing and extracting cross-correlations from dataframes
+  
+- `circuit_helpers`
+  - allows exporting of circuit properties to strings
+
     
     
     

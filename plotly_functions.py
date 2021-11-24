@@ -126,6 +126,10 @@ figx
 LAG_KEY = 'lag [ms]'
 TIME_KEY = 'time [ms]'
 def df_plot_timeseries_and_xcorr(df, dfx, group_names, highlight_window=None, fig_title=None, html_file=None, xcorr_plot_window=[-250,250]):
+    add_window_box = False
+    # this replaces peak region being bolded with a green highlight rectangle
+    # note, this preview seems not to work
+    
     #setup dataframe
     df_m = melt_group_df_timeseries(df)
     dfx_m = melt_hier_df_timeseries(dfx,'from','to','xcorr',LAG_KEY)
@@ -152,6 +156,7 @@ def df_plot_timeseries_and_xcorr(df, dfx, group_names, highlight_window=None, fi
         return gl
     
     #loop 
+
     for i, group_i in enumerate(group_names):
         ip = i+1
         df_i = df_m[df_m['population']==group_i]
@@ -167,7 +172,7 @@ def df_plot_timeseries_and_xcorr(df, dfx, group_names, highlight_window=None, fi
             pass
         fig.add_trace(gl, row=ip, col=1)
         
-
+        
         #Plot cross-correlations
         for j, group_j in enumerate(group_names):
             color_j = q_colors[j]
@@ -176,7 +181,7 @@ def df_plot_timeseries_and_xcorr(df, dfx, group_names, highlight_window=None, fi
 
             df_ij = time_selection_df(dfx_m[ij_mask], xcorr_plot_window, LAG_KEY)
             
-            if highlight_window is None:
+            if (highlight_window is None) or add_window_box:
                 gl = go_line_ij_xcorr(df_ij, color = color_j,legendgroup=f'group{j}')
                 fig.add_trace(gl, row=ip, col=2)
             else:
@@ -187,6 +192,11 @@ def df_plot_timeseries_and_xcorr(df, dfx, group_names, highlight_window=None, fi
             
                 fig.add_trace(gl_fade,row=ip,col=2)
                 fig.add_trace(gl_center,row=ip,col=2)
+                
+    if add_window_box:
+        # https://plotly.com/python/horizontal-vertical-shapes/
+        fig.add_vrect(x0=highlight_window[0], x1=highlight_window[1],line_width=0, fillcolor="lightgreen", opacity=0.2, row='all', col=2)
+
     fig.update_xaxes(dtick=50,col=2)        
     fig.update_xaxes(title_text=TIME_KEY, row=len(group_names), col=1)
     fig.update_xaxes(title_text=LAG_KEY, row=len(group_names), col=2)
