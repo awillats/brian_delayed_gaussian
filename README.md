@@ -8,42 +8,15 @@
 - **secondary goal:** export data from StateMonitors to pandas DataFrames
   - format suitable for df-based plotting libraries like plotly
 
-- ~~**tertiary goal:** deploy interactive cross-correlation figures as a Dash app (through Heroku + GitHub)~~
-  - after trying this, I would prefer a static html export
 ---
 # Adam's current development priorities 
-- [ ] wrap up cross-correlation & plotting
-  - [ ] clean up labels on cross-correlation dataframe
-    
-    - nodes x time to
-    - from node, to node, lag [ms]
-    
-    - can I normalize without casting to numpy?
-      - why cast to numpy?
-        - for use in functions 
-        - to freeze time index sorting
-        - to use :-1 slicing 
-      - pass columns instead OR use pandas functions
-        - this operation works well enough: https://stackoverflow.com/questions/28576540/how-can-i-normalize-the-data-in-a-range-of-columns-in-my-pandas-dataframe/28577480
-    
-    
-  - [ ] robustify normalization code
-    - ?? hoist options to the top of the script
-    - [ ] encapsulate `timeseries_df_to_xcorr`
-      - [ ]  bundle for loop into function 
-     
-    - [ ] encapsulate encoding 2 columns down to one
-      - look into plotly combining columns
-    
-  - [ ] translate dash app to combined figures for static export
-  - [ ] debug plotly xrange issue
-  - [ ] add nicer cross-correlation annotation
+      
+- [ ] debug multiple input synapses to same current
+- [ ] add nicer cross-correlation annotation
 
 - [~] partition plotting-related and cross-correlation code from delay-buffer-related code 
   - [ ] update script directory
   - [ ] perhaps have separate branches?
-
-- [ ] debug multiple input synapses to same current
 
 - [ ] cleanup setting values for sigma
   - "sigma" is an internal variable of group "neurongroup_1", but also exists in the run namespace with the value 1. The internal variable will be used.
@@ -51,7 +24,6 @@
 - [ ] clean up indexing convention
 
 - [ ] implement, demonstrate "rolling index" 
-
 ---
 
   

@@ -22,17 +22,9 @@ from dataframe_preprocessing_functions import *
 %autoreload 2
 
 '''
-rename XCORR dataframe!
-- then can send to Matt
-- print other params to title!!
-
+To-do:
 ERROR: NotImplementedError: Multiple "summed variables" target the variable "I_in" in group "neurongroup_2". Use multiple variables in the target group instead.
 
-- stop dash app from executing from notebook
-------
-tau blurs xcorr peaks out to wider lags!
-
-longer sims means easier xcorr decoding 
 '''
 
 # %%
@@ -257,38 +249,6 @@ dfhist_m.replace({'compare population': rename_groups}, inplace=True)
 
 #%%
 
-df_m
-
-
-# constrain(2)
-# WHITE = (255,255,255)
-# GRAY = tuple([180]*3)
-# # GRAY = (100,100,100)
-# 
-# q_colors_fade=[]
-# for c in q_colors:
-#     for i in range(N_neurons):
-#         perc=i/(N_neurons-1)
-#         iperc = 1-perc
-#         # print(perc)
-#         color_speed = 10
-#         min_saturation = .2
-#         opacity_speed = 3
-#         min_opacity = .1
-# 
-#         # greater than one will saturate to white/gray 
-#         # less than one will keep color close to fully saturated
-# 
-#         color_prop = constrain(1-iperc*color_speed, min_saturation, 1)
-# 
-#         alpha = constrain(1-iperc*opacity_speed, min_opacity,1)
-#         alpha = round(alpha, 1)
-# 
-#         plotly.colors.hex_to_rgb(c)
-#         new_color = plotly.colors.find_intermediate_color(GRAY, plotly.colors.hex_to_rgb(c), color_prop)
-# 
-#         new_color = 'rgba'+str(new_color+tuple([alpha]))
-#         q_colors_fade.append(new_color)
 #%%
 fig = []
 fig = px.line(df_m, x='time [ms]', y='voltage', facet_row='population', 
@@ -308,7 +268,6 @@ df_avg = df.groupby(axis='columns', level=0).mean()
 df_avg
 
  
-    
 #Options for cross-correlation analysis
 do_norm_outputs = True # seems like generally a good idea
 do_sub_auto_corr = False 
@@ -325,16 +284,6 @@ figtx = df_plot_timeseries_and_xcorr(df_avg, dfx, group_names, xcorr_plot_window
     fig_title=fig_title, html_file=None)
     # 'figs/gaussian_combo.html')
 figtx
-#%% markdown 
-peak @ (delay + tau/2) * n_jumps
-
-extent = 7-10 *tau
-
-50 - 50 / 5ms
-80-110 / 10ms
-220 / 30ms
-
-
 
 
 
