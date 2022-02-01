@@ -8,6 +8,7 @@
 - **secondary goal:** export data from StateMonitors to pandas DataFrames
   - format suitable for df-based plotting libraries like plotly
 
+**Note:** see [rat-h/dcv4brian](https://github.com/rat-h/dcv4brian) [context on brian2 forums](https://brian.discourse.group/t/module-for-delayed-continues-variable-in-brian/594) for more thorough, efficient implementation
 ---
 # Adam's current development priorities 
 
